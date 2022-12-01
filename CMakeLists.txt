@@ -24,18 +24,20 @@ target_include_directories(
     libs/MinHook
     libs/gd.h/include
     libs/gd.h
-    libs/detours
     libs/imgui-hook
     libs/imgui-hook/imgui
+    libs/imgui-savedialog
 )
 
 add_subdirectory(libs/imgui-hook)
+add_subdirectory(libs/imgui-savedialog)
+
 target_link_libraries(
     ${PROJECT_NAME}
     ${CMAKE_SOURCE_DIR}/libs/cocos-headers/cocos2dx/libcocos2d.lib
     ${CMAKE_SOURCE_DIR}/libs/cocos-headers/extensions/libExtensions.lib
     ${CMAKE_SOURCE_DIR}/libs/minhook/minhook.lib
-    ${CMAKE_SOURCE_DIR}/libs/detours/detours.lib
+    imgui-savedialog
     imgui-hook
     opengl32
 )

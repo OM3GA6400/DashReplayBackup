@@ -33,6 +33,8 @@ struct checkpointsdata {
 
 namespace playLayer {
     extern int frame;
+    
+    extern int framestart;
     extern int mode;
 
     extern bool down_p1;

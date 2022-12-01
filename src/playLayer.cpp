@@ -4,6 +4,8 @@
 int playLayer::mode = 0;
 int playLayer::frame = 0;
 
+int playLayer::framestart = 0;
+
 bool playLayer::down_p1 = false;
 bool playLayer::down_p2 = false;
 
@@ -205,7 +207,11 @@ namespace playLayer {
 				self->m_pPlayer2->m_playerSpeed = checkpoints_p2.back().player_speed;
 				self->m_pPlayer2->m_isUpsideDown = checkpoints_p2.back().is_upsidedown;
 			}
-			else frame = 0;
+			else {
+				frame = 0;
+				replay_p1.clear();
+				replay_p2.clear();
+			}
 
 
 		}

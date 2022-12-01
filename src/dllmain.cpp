@@ -9,6 +9,7 @@
 #include <imgui-hook.hpp>
 #include <imgui_internal.h>
 #include <imgui.h>
+#include <ImGuiFileDialog.h>
 
 using namespace cocos2d;
 
@@ -58,9 +59,83 @@ string SaveFileDialog(LPCSTR filter) {
 
 void RenderMain() {
     if (show) {
+        if (ImGuiFileDialog::Instance()->Display("ChooseReplay")) 
+        {
+            if (ImGuiFileDialog::Instance()->IsOk())
+            {
+                playLayer::clearMacro();
+                playLayer::loadReplay(ImGuiFileDialog::Instance()->GetFilePathName());
+            }
+            ImGuiFileDialog::Instance()->Close();
+        }
+
+        if (ImGuiFileDialog::Instance()->Display("SaveReplay")) 
+        {
+            if (ImGuiFileDialog::Instance()->IsOpened())
+            {
+                playLayer::saveReplay(ImGuiFileDialog::Instance()->GetFilePathName());
+            }
+            ImGuiFileDialog::Instance()->Close();
+        }
+
+        if (ImGuiFileDialog::Instance()->Display("ImportCustomMacro")) 
+        {
+            if (ImGuiFileDialog::Instance()->IsOk())
+            {
+                playLayer::clearMacro();
+
+                string line;
+                fstream file(ImGuiFileDialog::Instance()->GetFilePathName());
+
+                vector<string> splitwords;
+                string splitword;
+
+                getline(file, line);
+                FPSMultiplier::g_target_fps = stof(line);
+                while (getline(file, line)) {
+                    splitwords.clear();
+                    if (!line.empty()) {
+                        istringstream splitstr(line);
+                        while (getline(splitstr, splitword, ' ')) {
+                            splitwords.push_back(splitword);
+                        }
+                        int framer = stoi(splitwords[0]);
+                        int p1 = stoi(splitwords[1]);
+                        int p2 = stoi(splitwords[2]);
+                        Console::Write("Checking " + to_string(framer) + " frame\n");
+                        while ((int)playLayer::replay_p1.size() != framer) {
+                            replaydata emptydata_p1 = {-1, -1, -1, -1, -1, -1};
+                            playLayer::replay_p1.push_back(emptydata_p1);
+                        }
+                        
+                        replaydata newdata_p1 = {framer, -1, -1 , -1, -1, p1};
+                        playLayer::replay_p1.push_back(newdata_p1);
+                    }
+                }
+                file.close();
+            }
+            ImGuiFileDialog::Instance()->Close();
+        }
+
+        if (ImGuiFileDialog::Instance()->Display("SaveCustomMacro")) 
+        {
+            if (ImGuiFileDialog::Instance()->IsOpened())
+            {
+                if (converterType == 0) {
+                    std::ofstream out(ImGuiFileDialog::Instance()->GetFilePathName());
+                    out << FPSMultiplier::g_target_fps << "\n";
+                    for (int i = 0; i < (int)playLayer::replay_p1.size(); i++) {
+                        if (i == 0 || (playLayer::replay_p1[i].down == playLayer::replay_p1[i - 1].down && playLayer::replay_p2[i].down == playLayer::replay_p2[i - 1].down))
+                            continue;
+                        out << i << " " << playLayer::replay_p1[i].down << " " << playLayer::replay_p2[i].down << "\n";
+                    }
+                    out.close();	
+                }
+            }
+            ImGuiFileDialog::Instance()->Close();
+        }
+
         ImGui::Begin("DashReplay", &show, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
-
-
         if (!inited) {
             ImGui::SetWindowPos(ImVec2(10, 10));
             ImGui::SetWindowSize(ImVec2(500, 300));
@@ -99,11 +174,6 @@ void RenderMain() {
                         playLayer::replay_p2.clear();
                         playLayer::checkpoints_p1.clear();
                         playLayer::checkpoints_p2.clear();
-                        //Practice Music Fix fixes replay recording omg 
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20C925), "\x90\x90\x90\x90\x90\x90", 6, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20D143), "\x90\x90", 2, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20A563), "\x90\x90", 2, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20A595), "\x90\x90", 2, NULL);
                     }
                     else {
                         playLayer::mode = 0;
@@ -122,15 +192,15 @@ void RenderMain() {
                 ImGui::Separator();
 
                 if (ImGui::Button("Load", {60, NULL})) {
-                    string fileName = OpenFileDialog("DashReplay Replay\0*.*\0");
-                    if (!fileName.empty()) playLayer::loadReplay(fileName);
+                    ImGuiFileDialog::Instance()->OpenDialog("ChooseReplay", "Choose Replay", ".*", "", 1, nullptr);
+                    ImGuiFileDialog::Instance()->Display("ChooseReplay", ImGuiWindowFlags_NoCollapse, ImVec2(600,400)); 
                 }
 
                 ImGui::SameLine();
 
-                if (ImGui::Button("Save", {60, NULL})) {
-                    string fileName = SaveFileDialog("DashReplay Replay\0*.*\0");
-                    if (!fileName.empty()) playLayer::saveReplay(fileName);
+                if (ImGui::Button("Save", {60, NULL})) {           
+                    ImGuiFileDialog::Instance()->OpenDialog("SaveReplay", "Save Replay", ".*", "", 1, nullptr, ImGuiFileDialogFlags_ConfirmOverwrite);
+                    ImGuiFileDialog::Instance()->Display("SaveReplay", ImGuiWindowFlags_NoCollapse, ImVec2(600,400)); 
                 }
 
                 ImGui::SameLine();
@@ -153,6 +223,8 @@ void RenderMain() {
                 ImGui::Checkbox("FPS Bypass", &FPSMultiplier::fpsbypass_enabled);
                 ImGui::SameLine();
                 ImGui::Checkbox("FPS Multiplier", &FPSMultiplier::g_enabled);
+                // ImGui::Separator();
+                // ImGui::DragInt("##StartFrame", &playLayer::framestart, 1, 0, INT_MAX, "Start from %i frame");
                 ImGui::Separator();
                 ImGui::Text("Frame: %i", playLayer::frame);
                 ImGui::Text("Replay Size: %i", (int)playLayer::replay_p1.size() + (int)playLayer::replay_p2.size());
@@ -232,57 +304,15 @@ void RenderMain() {
                 ImGui::Combo("##ConverterType", &converterType, converterTypes, IM_ARRAYSIZE(converterTypes));
                 if (ImGui::Button("Convert")) {
                     if (converterType == 0) {
-                        string savepath = SaveFileDialog("Plain Text\0*.txt\0");
-                        if (!savepath.empty()) {
-                            savepath += ".txt";
-                            std::ofstream out(savepath);
-                            out << FPSMultiplier::g_target_fps << "\n";
-                            for (int i = 0; i < (int)playLayer::replay_p1.size(); i++) {
-                                if (i == 0 || (playLayer::replay_p1[i].down == playLayer::replay_p1[i - 1].down && playLayer::replay_p2[i].down == playLayer::replay_p2[i - 1].down))
-                                    continue;
-                                out << i << " " << playLayer::replay_p1[i].down << " " << playLayer::replay_p2[i].down << "\n";
-                            }
-                            out.close();	
-                        }
+                        ImGuiFileDialog::Instance()->OpenDialog("SaveCustomMacro", "Save Custom Replay", ".txt", "", 1, nullptr, ImGuiFileDialogFlags_ConfirmOverwrite);
+                        ImGuiFileDialog::Instance()->Display("SaveCustomMacro", ImGuiWindowFlags_NoCollapse, ImVec2(600,400)); 
                     }
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("Import (Beta)")) {
                     if (converterType == 0) {
-                        string openpath = OpenFileDialog("Plain Text\0*.txt\0");
-                        if (!openpath.empty()) {
-                            playLayer::clearMacro();
-
-                            string line;
-                            fstream file(openpath);
-
-                            vector<string> splitwords;
-                            string splitword;
-
-                            getline(file, line);
-                            FPSMultiplier::g_target_fps = stof(line);
-                            while (getline(file, line)) {
-                                splitwords.clear();
-                                if (!line.empty()) {
-                                    istringstream splitstr(line);
-                                    while (getline(splitstr, splitword, ' ')) {
-                                        splitwords.push_back(splitword);
-                                    }
-                                    int framer = stoi(splitwords[0]);
-                                    int p1 = stoi(splitwords[1]);
-                                    int p2 = stoi(splitwords[2]);
-                                    Console::Write("Checking " + to_string(framer) + " frame\n");
-                                    while ((int)playLayer::replay_p1.size() != framer) {
-                                        replaydata emptydata_p1 = {-1, -1, -1, -1, -1, -1};
-                                        playLayer::replay_p1.push_back(emptydata_p1);
-                                    }
-                                    
-                                    replaydata newdata_p1 = {framer, -1, -1 , -1, -1, p1};
-                                    playLayer::replay_p1.push_back(newdata_p1);
-                                }
-                            }
-                            file.close();
-                        }
+                        ImGuiFileDialog::Instance()->OpenDialog("ImportCustomMacro", "Choose Custom Macro", ".txt", "", 1, nullptr);
+                        ImGuiFileDialog::Instance()->Display("ImportCustomMacro", ImGuiWindowFlags_NoCollapse, ImVec2(600,400)); 
                     }
                 }
                 if (ImGui::IsItemHovered())
@@ -383,18 +413,16 @@ void RenderMain() {
                         WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1FD7AF), "\x0F\x85\xA4\xFD\xFF\xFF", 6, NULL);
                     }
                 }
-
-
             }
 
             if (item_current_idx == 6) {
-                ImGui::Text("DashReplay GUI v2.0.0b");
+                ImGui::Text("DashReplay GUI v2.1.0b");
                 ImGui::Text("DashReplay Engine v3.1.0");
                 ImGui::Text("DashReplay created by TobyAdd, Powered by Dear ImGui");
                 ImGui::Separator();
                 ImGui::Text("Rigth/Left Alt - Toggle UI");
                 ImGui::Text("C - Enable Frame Advance + Next Frame");
-                ImGui::Text("F - FPS Multiplier");
+                ImGui::Text("F - Disable Frame Advance");
                 ImGui::Text("P - Toggle Playback");
                 ImGui::Text("S - Spam Bot Toggle");
                 ImGui::Separator();
@@ -442,7 +470,6 @@ void __fastcall dispatchKeyboardMSGHook(void* self, void*, int key, bool down) {
 
 DWORD WINAPI Main(void* hModule) {
     Console::Write("Hello World\n");
-    WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20A23C), "\xe9\x79\x06\x00\x00", 5, NULL);
     ImGuiHook::setRenderFunction(RenderMain);
 	MH_Initialize();
     FPSMultiplier::Setup();
