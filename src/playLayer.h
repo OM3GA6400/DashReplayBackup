@@ -40,6 +40,10 @@ namespace playLayer {
     extern bool down_p1;
     extern bool down_p2;
 
+    extern bool practice_fix;
+    extern bool accuracy_fix;
+    extern bool rotation_fix;
+
     extern bool ignore_input;
     extern bool dual_clicks;
 

@@ -6,7 +6,7 @@
 #include "fpsBypass.h"
 #include "playLayer.h"
 #include "spamBot.h"
-#include <imgui-hook.hpp>
+#include <imgui_hook.h>
 #include <imgui_internal.h>
 #include <imgui.h>
 #include <ImGuiFileDialog.h>
@@ -33,31 +33,8 @@ int item_current_idx = 0;
 int replay_select_player_p1 = 1;
 int replay_current = 0;
 
-string OpenFileDialog(LPCSTR filter) {
-    OPENFILENAME ofn;
-    char fileName[MAX_PATH] = "";
-    ZeroMemory(&ofn, sizeof(ofn));
-    ofn.lpstrFilter = filter;
-    ofn.lStructSize = sizeof(OPENFILENAME);
-    ofn.lpstrFile = fileName;
-    ofn.nMaxFile = MAX_PATH;
-    if (GetOpenFileName(&ofn)) return fileName;
-    return "";
-}
-
-string SaveFileDialog(LPCSTR filter) {
-    OPENFILENAME sfd;
-    char fileName[MAX_PATH] = "";
-    ZeroMemory(&sfd, sizeof(sfd));
-    sfd.lpstrFilter = filter;
-    sfd.lStructSize = sizeof(OPENFILENAME);
-    sfd.lpstrFile = fileName;
-    sfd.nMaxFile = MAX_PATH;
-    if (GetSaveFileName(&sfd)) return fileName;
-    return "";
-}
-
 void RenderMain() {
+    CCDirector::sharedDirector()->getTouchDispatcher()->setDispatchEvents(!ImGui::GetIO().WantCaptureMouse);
     if (show) {
         if (ImGuiFileDialog::Instance()->Display("ChooseReplay")) 
         {
@@ -220,14 +197,20 @@ void RenderMain() {
                 }
 
                 ImGui::Separator();
+                ImGui::Checkbox("Practice Fix", &playLayer::practice_fix);
+                ImGui::SameLine();
+                ImGui::Checkbox("Accuracy Fix", &playLayer::accuracy_fix);
+                if (playLayer::accuracy_fix) {ImGui::SameLine(); ImGui::Checkbox("Rotation Fix", &playLayer::rotation_fix);}
+                // ImGui::DragInt("##StartFrame", &playLayer::framestart, 1, 0, INT_MAX, "Start from %i frame");
+                ImGui::Separator();
                 ImGui::Checkbox("FPS Bypass", &FPSMultiplier::fpsbypass_enabled);
                 ImGui::SameLine();
                 ImGui::Checkbox("FPS Multiplier", &FPSMultiplier::g_enabled);
-                // ImGui::Separator();
-                // ImGui::DragInt("##StartFrame", &playLayer::framestart, 1, 0, INT_MAX, "Start from %i frame");
+                ImGui::Separator();
+                ImGui::Checkbox("Ignore Inputs on Playback", &playLayer::ignore_input);
                 ImGui::Separator();
                 ImGui::Text("Frame: %i", playLayer::frame);
-                ImGui::Text("Replay Size: %i", (int)playLayer::replay_p1.size() + (int)playLayer::replay_p2.size());
+                ImGui::Text("Replay Size: %i (P2: %i)", (int)playLayer::replay_p1.size(), (int)playLayer::replay_p2.size());
             }
 
             if (item_current_idx == 1) {
@@ -416,7 +399,7 @@ void RenderMain() {
             }
 
             if (item_current_idx == 6) {
-                ImGui::Text("DashReplay GUI v2.1.0b");
+                ImGui::Text("DashReplay GUI v2.2.0b");
                 ImGui::Text("DashReplay Engine v3.1.0");
                 ImGui::Text("DashReplay created by TobyAdd, Powered by Dear ImGui");
                 ImGui::Separator();
@@ -470,13 +453,10 @@ void __fastcall dispatchKeyboardMSGHook(void* self, void*, int key, bool down) {
 
 DWORD WINAPI Main(void* hModule) {
     Console::Write("Hello World\n");
-    ImGuiHook::setRenderFunction(RenderMain);
+    ImGuiHook::Load(RenderMain);
 	MH_Initialize();
     FPSMultiplier::Setup();
     playLayer::mem_init();
-	ImGuiHook::setupHooks([](void* target, void* hook, void** trampoline) {
-		MH_CreateHook(target, hook, trampoline);
-	});
 	MH_CreateHook(
 		(PVOID)(GetProcAddress(GetModuleHandleA("libcocos2d.dll"), "?dispatchKeyboardMSG@CCKeyboardDispatcher@cocos2d@@QAE_NW4enumKeyCodes@2@_N@Z")),
 		dispatchKeyboardMSGHook,

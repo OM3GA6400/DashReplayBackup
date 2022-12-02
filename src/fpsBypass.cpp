@@ -1,4 +1,5 @@
 #include "fpsBypass.h"
+#include "playLayer.h"
 
 using namespace cocos2d;
 
@@ -23,7 +24,7 @@ namespace FPSMultiplier{
             void *application = sharedApplication();
             setAnimInterval(application, 1.0f / g_target_fps);
         }   
-        if (gd::PlayLayer::get() && !gd::PlayLayer::get()->m_bIsPaused) {      
+        if (gd::PlayLayer::get() && !gd::PlayLayer::get()->m_bIsPaused && (playLayer::mode == 1 || playLayer::mode == 2)) {      
             if (!g_enabled)
                 return CCScheduler_update(self, dt);
             auto speedhack = self->getTimeScale();

@@ -9,7 +9,11 @@ int playLayer::framestart = 0;
 bool playLayer::down_p1 = false;
 bool playLayer::down_p2 = false;
 
-bool playLayer::ignore_input = false;
+bool playLayer::accuracy_fix = true;
+bool playLayer::practice_fix = true;
+bool playLayer::rotation_fix = false;
+
+bool playLayer::ignore_input = true;
 bool playLayer::dual_clicks = false;
 
 float playLayer::fpsvalue = 60.f;
@@ -115,7 +119,7 @@ namespace playLayer {
 		playLayer::update(self, deltaTime);
 		if (self->m_pPlayer1->m_position.x != 0 && !self->m_isDead) frame++;
 		if (mode == 1) {
-			if (frame) {
+			if (frame && !self->m_isDead) {
 				replaydata newdata_p1 = {frame, self->m_pPlayer1->m_position.x, self->m_pPlayer1->m_position.y, self->m_pPlayer1->getRotation(),
 					(float)self->m_pPlayer1->m_yAccel, down_p1};
 				replay_p1.push_back(newdata_p1);
@@ -128,10 +132,12 @@ namespace playLayer {
 		else if (mode == 2 && !self->m_isDead) {
 			if (frame) {
 				if ((int)replay_p1.size() > frame) {
-					if (replay_p1[frame-1].pos_x != -1) self->m_pPlayer1->m_position.x = replay_p1[frame-1].pos_x;
-					if (replay_p1[frame-1].pos_y != -1) self->m_pPlayer1->m_position.y = replay_p1[frame-1].pos_y;
-					//if (replay_p1[frame-1].rotation != -1) self->m_pPlayer1->setRotation(replay_p1[frame-1].rotation);
-					if (replay_p1[frame-1].y_vel != -1) self->m_pPlayer1->m_yAccel = replay_p1[frame-1].y_vel;
+					if (accuracy_fix) {
+						if (replay_p1[frame-1].pos_x != -1) self->m_pPlayer1->m_position.x = replay_p1[frame-1].pos_x;
+						if (replay_p1[frame-1].pos_y != -1) self->m_pPlayer1->m_position.y = replay_p1[frame-1].pos_y;
+						if (rotation_fix) {if (replay_p1[frame-1].rotation != -1) self->m_pPlayer1->setRotation(replay_p1[frame-1].rotation);}
+						if (replay_p1[frame-1].y_vel != -1) self->m_pPlayer1->m_yAccel = replay_p1[frame-1].y_vel;
+					}
 					if (replay_p1[frame].down != -1) {
 						if (replay_p1[frame].down && !down_p1) {
 							pushButton(self, 0, true);
@@ -145,10 +151,12 @@ namespace playLayer {
 				}
 
 				if ((int)replay_p2.size() > frame) {
-					if (replay_p2[frame-1].pos_x != -1) self->m_pPlayer2->m_position.x = replay_p2[frame-1].pos_x;
-					if (replay_p2[frame-1].pos_y != -1) self->m_pPlayer2->m_position.y = replay_p2[frame-1].pos_y;
-					//if (replay_p2[frame-1].rotation != -1) self->m_pPlayer2->setRotation(replay_p2[frame-1].rotation);
-					if (replay_p2[frame-1].y_vel != -1) self->m_pPlayer2->m_yAccel = replay_p2[frame-1].y_vel;
+					if (accuracy_fix) {
+						if (replay_p2[frame-1].pos_x != -1) self->m_pPlayer2->m_position.x = replay_p2[frame-1].pos_x;
+						if (replay_p2[frame-1].pos_y != -1) self->m_pPlayer2->m_position.y = replay_p2[frame-1].pos_y;
+						if (rotation_fix) {if (replay_p2[frame-1].rotation != -1) self->m_pPlayer2->setRotation(replay_p2[frame-1].rotation);}
+						if (replay_p2[frame-1].y_vel != -1) self->m_pPlayer2->m_yAccel = replay_p2[frame-1].y_vel;
+					}
 					if (replay_p1[frame].down != -1) {
 						if (replay_p2[frame].down && !down_p2) {
 							pushButton(self, 0, false);
@@ -189,35 +197,29 @@ namespace playLayer {
 
 			if (checkpoints_p1.back().frame != 0) {
 				frame = checkpoints_p1.back().frame;
-				self->m_pPlayer1->m_position.x = checkpoints_p1.back().pos_x;
-				self->m_pPlayer1->m_position.y = checkpoints_p1.back().pos_y;
-				self->m_pPlayer1->setRotation(checkpoints_p1.back().rotation);
-				self->m_pPlayer1->m_xAccel = checkpoints_p1.back().x_vel;
-				self->m_pPlayer1->m_yAccel = checkpoints_p1.back().y_vel;
-				self->m_pPlayer1->m_jumpAccel = checkpoints_p1.back().jump_vel;
-				self->m_pPlayer1->m_playerSpeed = checkpoints_p1.back().player_speed;
-				self->m_pPlayer1->m_isUpsideDown = checkpoints_p1.back().is_upsidedown;
+				if (practice_fix) {
+					self->m_pPlayer1->m_position.x = checkpoints_p1.back().pos_x;
+					self->m_pPlayer1->m_position.y = checkpoints_p1.back().pos_y;
+					self->m_pPlayer1->setRotation(checkpoints_p1.back().rotation);
+					self->m_pPlayer1->m_xAccel = checkpoints_p1.back().x_vel;
+					self->m_pPlayer1->m_yAccel = checkpoints_p1.back().y_vel;
+					self->m_pPlayer1->m_jumpAccel = checkpoints_p1.back().jump_vel;
+					self->m_pPlayer1->m_playerSpeed = checkpoints_p1.back().player_speed;
+					self->m_pPlayer1->m_isUpsideDown = checkpoints_p1.back().is_upsidedown;
 
-				self->m_pPlayer2->m_position.x = checkpoints_p2.back().pos_x;
-				self->m_pPlayer2->m_position.y = checkpoints_p2.back().pos_y;
-				self->m_pPlayer2->setRotation(checkpoints_p2.back().rotation);
-				self->m_pPlayer2->m_xAccel = checkpoints_p2.back().x_vel;
-				self->m_pPlayer2->m_yAccel = checkpoints_p2.back().y_vel;
-				self->m_pPlayer2->m_jumpAccel = checkpoints_p2.back().jump_vel;
-				self->m_pPlayer2->m_playerSpeed = checkpoints_p2.back().player_speed;
-				self->m_pPlayer2->m_isUpsideDown = checkpoints_p2.back().is_upsidedown;
+					self->m_pPlayer2->m_position.x = checkpoints_p2.back().pos_x;
+					self->m_pPlayer2->m_position.y = checkpoints_p2.back().pos_y;
+					self->m_pPlayer2->setRotation(checkpoints_p2.back().rotation);
+					self->m_pPlayer2->m_xAccel = checkpoints_p2.back().x_vel;
+					self->m_pPlayer2->m_yAccel = checkpoints_p2.back().y_vel;
+					self->m_pPlayer2->m_jumpAccel = checkpoints_p2.back().jump_vel;
+					self->m_pPlayer2->m_playerSpeed = checkpoints_p2.back().player_speed;
+					self->m_pPlayer2->m_isUpsideDown = checkpoints_p2.back().is_upsidedown;
+				}
 			}
-			else {
-				frame = 0;
-				replay_p1.clear();
-				replay_p2.clear();
-			}
-
-
+			else { frame = 0; }
 		}
-		else {
-			if (checkpoints_p1.empty()) frame = 0;
-		}
+		else { frame = 0;}
 
     }
 
@@ -239,27 +241,33 @@ namespace playLayer {
 	}
 
 	bool __fastcall playLayer::pushButtonHook(gd::PlayLayer* self, uintptr_t, int state, bool player) {
-		auto ret = playLayer::pushButton(self, state, player);
-		if (player) down_p1 = true;
-		if (!player) down_p2 = true;
-		if (dual_clicks) {
-			down_p1 = true;
-			down_p2 = true;
-			playLayer::pushButton(self, state, !player);
+		if (mode == 2 && ignore_input) return false;
+		else {
+			auto ret = playLayer::pushButton(self, state, player);
+			if (player) down_p1 = true;
+			if (!player) down_p2 = true;
+			if (dual_clicks) {
+				down_p1 = true;
+				down_p2 = true;
+				playLayer::pushButton(self, state, !player);
+			}
+			return ret;
 		}
-		return ret;
 	}
 
 	bool __fastcall playLayer::releaseButtonHook(gd::PlayLayer* self, uintptr_t, int state, bool player) {
-		auto ret = playLayer::releaseButton(self, state, player);
-		if (player) down_p1 = false;
-		if (!player) down_p2 = false;
-		if (dual_clicks) {
-			down_p1 = false;
-			down_p2 = false;
-			playLayer::releaseButton(self, state, !player);
+		if (mode == 2 && ignore_input) return false;
+		else {
+			auto ret = playLayer::releaseButton(self, state, player);
+			if (player) down_p1 = false;
+			if (!player) down_p2 = false;
+			if (dual_clicks) {
+				down_p1 = false;
+				down_p2 = false;
+				playLayer::releaseButton(self, state, !player);
+			}
+			return ret;
 		}
-		return ret;
 	}
 
     int __fastcall playLayer::createCheckpointHook(gd::PlayLayer* self) {

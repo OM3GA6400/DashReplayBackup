@@ -37,7 +37,7 @@ target_link_libraries(
     ${CMAKE_SOURCE_DIR}/libs/cocos-headers/cocos2dx/libcocos2d.lib
     ${CMAKE_SOURCE_DIR}/libs/cocos-headers/extensions/libExtensions.lib
     ${CMAKE_SOURCE_DIR}/libs/minhook/minhook.lib
-    imgui-savedialog
     imgui-hook
+    imgui-savedialog
     opengl32
 )
