@@ -8,4 +8,5 @@ namespace uselessShit {
 
     bool stringToBool(string s);
     string boolToString(bool b);
+    int random_range(int from, int to);
 }

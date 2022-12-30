@@ -4,7 +4,7 @@
 #include <gd.h>
 
 namespace gd {
-	class GDH_DLL LoadingLayer : public cocos2d::CCLayer {
+	class LoadingLayer : public cocos2d::CCLayer {
 	protected:
 		PAD(4);
 		int m_nLoadIndex;

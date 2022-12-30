@@ -13,7 +13,7 @@ namespace gd {
 		kShopTypeCommunity
 	} ShopType;
 
-	class GDH_DLL AnimatedShopKeeper : public CCAnimatedSprite {
+	class AnimatedShopKeeper : public CCAnimatedSprite {
 	protected:
 		float m_fUnknown1;
 		float m_fUnknown2;

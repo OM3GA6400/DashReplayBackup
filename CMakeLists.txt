@@ -1,20 +1,14 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.1.0)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTERSIONS OFF)
-
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(PROJECT_NAME DashReplayAPI3)
 project(${PROJECT_NAME})
 
-file(GLOB_RECURSE SOURCES 
-    src/*.cpp
-)
+file(GLOB_RECURSE SOURCE_FILES src/*.cpp)
+add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES})
 
-set(WIN32 ON)
-add_library(${PROJECT_NAME} SHARED ${SOURCES})
-
-target_include_directories(
-    ${PROJECT_NAME} PRIVATE
+target_include_directories(${PROJECT_NAME} PRIVATE
     libs/cocos-headers/cocos2dx
     libs/cocos-headers/cocos2dx/include
     libs/cocos-headers/cocos2dx/kazmath/include
@@ -26,18 +20,13 @@ target_include_directories(
     libs/gd.h
     libs/imgui-hook
     libs/imgui-hook/imgui
-    libs/imgui-savedialog
 )
 
+add_subdirectory(libs/minhook)
 add_subdirectory(libs/imgui-hook)
-add_subdirectory(libs/imgui-savedialog)
 
-target_link_libraries(
-    ${PROJECT_NAME}
-    ${CMAKE_SOURCE_DIR}/libs/cocos-headers/cocos2dx/libcocos2d.lib
-    ${CMAKE_SOURCE_DIR}/libs/cocos-headers/extensions/libExtensions.lib
-    ${CMAKE_SOURCE_DIR}/libs/minhook/minhook.lib
-    imgui-hook
-    imgui-savedialog
-    opengl32
-)
+target_link_libraries(${PROJECT_NAME} minhook)
+target_link_libraries(${PROJECT_NAME} imgui-hook)
+target_link_libraries(${PROJECT_NAME} opengl32)
+target_link_libraries(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/libs/cocos-headers/cocos2dx/libcocos2d.lib)
+target_link_libraries(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/libs/cocos-headers/extensions/libExtensions.lib)

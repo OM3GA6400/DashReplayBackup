@@ -4,7 +4,7 @@
 #include <gd.h>
 
 namespace gd {
-    class GDH_DLL GJUserScore : public cocos2d::CCNode {
+    class GJUserScore : public cocos2d::CCNode {
         protected:
             std::string userName_;
             std::string userUDID_;

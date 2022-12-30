@@ -7,6 +7,8 @@
 #include "fpsBypass.h"
 #include "uselessShit.h"
 #include "spamBot.h"
+#include "console.h"
+#include <thread>
 
 using namespace std;
 
@@ -50,6 +52,15 @@ namespace playLayer {
     extern float fpsvalue;
     extern float speedvalue;
 
+    extern bool enable_sqp;
+    extern bool random_sqp;
+    extern int current_index_sqp;
+
+    extern vector<string> macro_sqp;
+    extern int sqp_current_idx;
+    extern bool first_sqp;
+    extern bool loadMacroASync;
+
     bool loadReplay(string s);
     bool saveReplay(string s);
     void clearMacro();
@@ -74,6 +85,9 @@ namespace playLayer {
         
     inline void(__thiscall* levelComplete)(gd::PlayLayer* self);
     void __fastcall levelCompleteHook(gd::PlayLayer* self);
+
+    inline int(__thiscall* death)(void* self, void* go, void* powerrangers);
+	int __fastcall deathHook(gd::PlayLayer* self, void*, void* go, void* powerrangers);
 
     inline bool(__thiscall* pushButton)(gd::PlayLayer* self, int state, bool player);
 	bool __fastcall pushButtonHook(gd::PlayLayer* self, uintptr_t, int state, bool player);

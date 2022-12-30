@@ -25,6 +25,15 @@ vector<replaydata> playLayer::replay_p2;
 vector<checkpointsdata> playLayer::checkpoints_p1;
 vector<checkpointsdata> playLayer::checkpoints_p2;
 
+bool playLayer::enable_sqp = false;
+bool playLayer::random_sqp = false;
+int playLayer::current_index_sqp = 0;
+
+vector<string> playLayer::macro_sqp;
+int playLayer::sqp_current_idx = 0;
+bool playLayer::first_sqp = true;
+
+
 namespace playLayer {
 	bool playLayer::saveReplay(string s) {
 		if (replay_p1.empty()) return false;
@@ -111,21 +120,21 @@ namespace playLayer {
 
     bool __fastcall playLayer::initHook(gd::PlayLayer* self, int edx, gd::GJGameLevel* level) {
 		bool ret = playLayer::init(self, level);
-
+		first_sqp = true;
 		return ret;
 	}
 
     void __fastcall playLayer::updateHook(gd::PlayLayer* self, int edx, float deltaTime) {
 		playLayer::update(self, deltaTime);
-		if (self->m_pPlayer1->m_position.x != 0 && !self->m_isDead) frame++;
+		if (self->m_player1->m_position.x != 0 && !self->m_isDead) frame++;
 		if (mode == 1) {
 			if (frame && !self->m_isDead) {
-				replaydata newdata_p1 = {frame, self->m_pPlayer1->m_position.x, self->m_pPlayer1->m_position.y, self->m_pPlayer1->getRotation(),
-					(float)self->m_pPlayer1->m_yAccel, down_p1};
+				replaydata newdata_p1 = {frame, self->m_player1->m_position.x, self->m_player1->m_position.y, self->m_player1->getRotation(),
+					(float)self->m_player1->m_yAccel, down_p1};
 				replay_p1.push_back(newdata_p1);
 
-				replaydata newdata_p2 = {frame, self->m_pPlayer2->m_position.x, self->m_pPlayer2->m_position.y, self->m_pPlayer2->getRotation(),
-					(float)self->m_pPlayer2->m_yAccel, down_p2};
+				replaydata newdata_p2 = {frame, self->m_player2->m_position.x, self->m_player2->m_position.y, self->m_player2->getRotation(),
+					(float)self->m_player2->m_yAccel, down_p2};
 				replay_p2.push_back(newdata_p2);
 			}
 		}
@@ -133,10 +142,10 @@ namespace playLayer {
 			if (frame) {
 				if ((int)replay_p1.size() > frame) {
 					if (accuracy_fix) {
-						if (replay_p1[frame-1].pos_x != -1) self->m_pPlayer1->m_position.x = replay_p1[frame-1].pos_x;
-						if (replay_p1[frame-1].pos_y != -1) self->m_pPlayer1->m_position.y = replay_p1[frame-1].pos_y;
-						if (rotation_fix) {if (replay_p1[frame-1].rotation != -1) self->m_pPlayer1->setRotation(replay_p1[frame-1].rotation);}
-						if (replay_p1[frame-1].y_vel != -1) self->m_pPlayer1->m_yAccel = replay_p1[frame-1].y_vel;
+						if (replay_p1[frame-1].pos_x != -1) self->m_player1->m_position.x = replay_p1[frame-1].pos_x;
+						if (replay_p1[frame-1].pos_y != -1) self->m_player1->m_position.y = replay_p1[frame-1].pos_y;
+						if (rotation_fix) {if (replay_p1[frame-1].rotation != -1) self->m_player1->setRotation(replay_p1[frame-1].rotation);}
+						if (replay_p1[frame-1].y_vel != -1) self->m_player1->m_yAccel = replay_p1[frame-1].y_vel;
 					}
 					if (replay_p1[frame].down != -1) {
 						if (replay_p1[frame].down && !down_p1) {
@@ -152,10 +161,10 @@ namespace playLayer {
 
 				if ((int)replay_p2.size() > frame) {
 					if (accuracy_fix) {
-						if (replay_p2[frame-1].pos_x != -1) self->m_pPlayer2->m_position.x = replay_p2[frame-1].pos_x;
-						if (replay_p2[frame-1].pos_y != -1) self->m_pPlayer2->m_position.y = replay_p2[frame-1].pos_y;
-						if (rotation_fix) {if (replay_p2[frame-1].rotation != -1) self->m_pPlayer2->setRotation(replay_p2[frame-1].rotation);}
-						if (replay_p2[frame-1].y_vel != -1) self->m_pPlayer2->m_yAccel = replay_p2[frame-1].y_vel;
+						if (replay_p2[frame-1].pos_x != -1) self->m_player2->m_position.x = replay_p2[frame-1].pos_x;
+						if (replay_p2[frame-1].pos_y != -1) self->m_player2->m_position.y = replay_p2[frame-1].pos_y;
+						if (rotation_fix) {if (replay_p2[frame-1].rotation != -1) self->m_player2->setRotation(replay_p2[frame-1].rotation);}
+						if (replay_p2[frame-1].y_vel != -1) self->m_player2->m_yAccel = replay_p2[frame-1].y_vel;
 					}
 					if (replay_p1[frame].down != -1) {
 						if (replay_p2[frame].down && !down_p2) {
@@ -186,6 +195,28 @@ namespace playLayer {
     }
 
     void __fastcall playLayer::resetLevelHook(gd::PlayLayer* self) {
+		if (enable_sqp) {
+			if (random_sqp) {
+				sqp_current_idx = uselessShit::random_range(0, (int)macro_sqp.size());
+			}
+			else {
+				if (first_sqp)  {
+					sqp_current_idx = 0;
+					first_sqp = false;
+				}
+				else sqp_current_idx++;
+				if (sqp_current_idx > (int)macro_sqp.size()) sqp_current_idx = 0;
+			}
+			//std::thread([]() {
+				playLayer::clearMacro();
+				//bool wasenabled = FPSMultiplier::g_enabled;
+				//FPSMultiplier::g_enabled = true;
+				//FPSMultiplier::frame_advance = true;
+				playLayer::loadReplay(".DashReplay/" + macro_sqp[sqp_current_idx]);		
+				FPSMultiplier::frame_advance = false;
+				//if (!wasenabled) FPSMultiplier::g_enabled = false;
+			//}).detach();		
+		}
 		playLayer::resetLevel(self);
 		if (self->m_isPracticeMode) {
 			checkpointsdata fuckning_data = {0};
@@ -198,23 +229,23 @@ namespace playLayer {
 			if (checkpoints_p1.back().frame != 0) {
 				frame = checkpoints_p1.back().frame;
 				if (practice_fix) {
-					self->m_pPlayer1->m_position.x = checkpoints_p1.back().pos_x;
-					self->m_pPlayer1->m_position.y = checkpoints_p1.back().pos_y;
-					self->m_pPlayer1->setRotation(checkpoints_p1.back().rotation);
-					self->m_pPlayer1->m_xAccel = checkpoints_p1.back().x_vel;
-					self->m_pPlayer1->m_yAccel = checkpoints_p1.back().y_vel;
-					self->m_pPlayer1->m_jumpAccel = checkpoints_p1.back().jump_vel;
-					self->m_pPlayer1->m_playerSpeed = checkpoints_p1.back().player_speed;
-					self->m_pPlayer1->m_isUpsideDown = checkpoints_p1.back().is_upsidedown;
+					self->m_player1->m_position.x = checkpoints_p1.back().pos_x;
+					self->m_player1->m_position.y = checkpoints_p1.back().pos_y;
+					self->m_player1->setRotation(checkpoints_p1.back().rotation);
+					self->m_player1->m_xAccel = checkpoints_p1.back().x_vel;
+					self->m_player1->m_yAccel = checkpoints_p1.back().y_vel;
+					self->m_player1->m_jumpAccel = checkpoints_p1.back().jump_vel;
+					self->m_player1->m_playerSpeed = checkpoints_p1.back().player_speed;
+					self->m_player1->m_isUpsideDown = checkpoints_p1.back().is_upsidedown;
 
-					self->m_pPlayer2->m_position.x = checkpoints_p2.back().pos_x;
-					self->m_pPlayer2->m_position.y = checkpoints_p2.back().pos_y;
-					self->m_pPlayer2->setRotation(checkpoints_p2.back().rotation);
-					self->m_pPlayer2->m_xAccel = checkpoints_p2.back().x_vel;
-					self->m_pPlayer2->m_yAccel = checkpoints_p2.back().y_vel;
-					self->m_pPlayer2->m_jumpAccel = checkpoints_p2.back().jump_vel;
-					self->m_pPlayer2->m_playerSpeed = checkpoints_p2.back().player_speed;
-					self->m_pPlayer2->m_isUpsideDown = checkpoints_p2.back().is_upsidedown;
+					self->m_player2->m_position.x = checkpoints_p2.back().pos_x;
+					self->m_player2->m_position.y = checkpoints_p2.back().pos_y;
+					self->m_player2->setRotation(checkpoints_p2.back().rotation);
+					self->m_player2->m_xAccel = checkpoints_p2.back().x_vel;
+					self->m_player2->m_yAccel = checkpoints_p2.back().y_vel;
+					self->m_player2->m_jumpAccel = checkpoints_p2.back().jump_vel;
+					self->m_player2->m_playerSpeed = checkpoints_p2.back().player_speed;
+					self->m_player2->m_isUpsideDown = checkpoints_p2.back().is_upsidedown;
 				}
 			}
 			else { frame = 0; }
@@ -238,6 +269,11 @@ namespace playLayer {
 			checkpoints_p2.clear();
 			mode = 0;
 		}
+	}
+
+	int __fastcall playLayer::deathHook(gd::PlayLayer* self, void*, void* go, void* powerrangers) {
+		auto ret = playLayer::death(self, go, powerrangers);
+		return ret;
 	}
 
 	bool __fastcall playLayer::pushButtonHook(gd::PlayLayer* self, uintptr_t, int state, bool player) {
@@ -272,13 +308,13 @@ namespace playLayer {
 
     int __fastcall playLayer::createCheckpointHook(gd::PlayLayer* self) {
         auto ret = playLayer::createCheckpoint(self);
-		checkpointsdata newdata_p1 = {frame, self->m_pPlayer1->m_position.x, self->m_pPlayer1->m_position.y, 
-			self->m_pPlayer1->getRotation(), (float)self->m_pPlayer1->m_xAccel, (float)self->m_pPlayer1->m_yAccel, (float)self->m_pPlayer1->m_jumpAccel,
-				self->m_pPlayer1->m_playerSpeed, self->m_pPlayer1->m_isUpsideDown};
+		checkpointsdata newdata_p1 = {frame, self->m_player1->m_position.x, self->m_player1->m_position.y, 
+			self->m_player1->getRotation(), (float)self->m_player1->m_xAccel, (float)self->m_player1->m_yAccel, (float)self->m_player1->m_jumpAccel,
+				self->m_player1->m_playerSpeed, self->m_player1->m_isUpsideDown};
 		checkpoints_p1.push_back(newdata_p1);
-		checkpointsdata newdata_p2 = {frame, self->m_pPlayer2->m_position.x, self->m_pPlayer2->m_position.y, 
-			self->m_pPlayer2->getRotation(), (float)self->m_pPlayer2->m_xAccel, (float)self->m_pPlayer2->m_yAccel, (float)self->m_pPlayer2->m_jumpAccel,
-				self->m_pPlayer2->m_playerSpeed, self->m_pPlayer2->m_isUpsideDown};
+		checkpointsdata newdata_p2 = {frame, self->m_player2->m_position.x, self->m_player2->m_position.y, 
+			self->m_player2->getRotation(), (float)self->m_player2->m_xAccel, (float)self->m_player2->m_yAccel, (float)self->m_player2->m_jumpAccel,
+				self->m_player2->m_playerSpeed, self->m_player2->m_isUpsideDown};
 		checkpoints_p2.push_back(newdata_p2);
 		return ret;
 	}
@@ -321,6 +357,12 @@ namespace playLayer {
 			(PVOID)(base + 0x1FD3D0),
 			playLayer::levelCompleteHook,
 			(LPVOID*)&playLayer::levelComplete
+		);
+
+		MH_CreateHook(
+			(PVOID)(base + 0x20A1A0),
+			playLayer::deathHook,
+			(LPVOID*)&playLayer::death
 		);
 
 		MH_CreateHook(

@@ -16,4 +16,11 @@ namespace uselessShit {
         else
             return "false";
     }
+
+    int uselessShit::random_range(int from, int to) {
+        float random = ((float)rand()) / (float)RAND_MAX;
+        float diff = to - from;
+        float r = random * diff;
+        return (int)(from + r);
+    }
 }

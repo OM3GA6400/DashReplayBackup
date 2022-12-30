@@ -5,7 +5,7 @@
 
 namespace gd {
 
-    class GDH_DLL NumberInputLayer : public FLAlertLayer {
+    class NumberInputLayer : public FLAlertLayer {
 
     };
 

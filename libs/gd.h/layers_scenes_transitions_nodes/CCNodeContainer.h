@@ -4,7 +4,7 @@
 #include <gd.h>
 
 namespace gd {
-    class GDH_DLL CCNodeContainer : public cocos2d::CCNode {
+    class CCNodeContainer : public cocos2d::CCNode {
         protected:
             // literally no extra fields or anything, just
             // these 3 methods

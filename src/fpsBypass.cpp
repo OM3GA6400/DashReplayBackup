@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include "fpsBypass.h"
 #include "playLayer.h"
 
@@ -20,24 +21,31 @@ namespace FPSMultiplier{
 
     void (__thiscall* CCScheduler_update)(CCScheduler*, float);
     void __fastcall CCScheduler_update_H(CCScheduler* self, int, float dt) {
+        auto pl = gd::GameManager::sharedState()->getPlayLayer();
         if (fpsbypass_enabled) {
             void *application = sharedApplication();
             setAnimInterval(application, 1.0f / g_target_fps);
         }   
-        if (gd::PlayLayer::get() && !gd::PlayLayer::get()->m_bIsPaused && (playLayer::mode == 1 || playLayer::mode == 2)) {      
+        if (pl && !pl->m_isPaused) {      
             if (!g_enabled)
                 return CCScheduler_update(self, dt);
             auto speedhack = self->getTimeScale();
             const float newdt = 1.f / g_target_fps / speedhack;
             g_disable_render = true;
 
-            const int times = min(static_cast<int>((dt + g_left_over) / newdt), 100);
-            for (int i = 0; i < times; ++i) {
-                if (i == times - 1)
-                    g_disable_render = false;
+            unsigned times = static_cast<int>((dt + g_left_over) / newdt);
+            if (dt == 0.f)
+                return CCScheduler_update(self, newdt);
+            auto start = std::chrono::high_resolution_clock::now();
+            for (unsigned i = 0; i < times; ++i) {
                 if (frame_advance && !nextframe) {return;}
                 else {nextframe = false;}
                 CCScheduler_update(self, newdt);
+                using namespace std::literals;
+                if (std::chrono::high_resolution_clock::now() - start > 33.333ms) {
+                    times = i + 1;
+                    break;
+                }
             }
             g_left_over += dt - newdt * times;
         } else {

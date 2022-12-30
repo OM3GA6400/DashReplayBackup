@@ -6,7 +6,7 @@
 namespace gd {
     class ColorActionSprite;
     
-    class GDH_DLL ColorAction : public cocos2d::CCNode {
+    class ColorAction : public cocos2d::CCNode {
     public:
         PAD(12);
         cocos2d::ccColor3B m_color;
@@ -18,7 +18,11 @@ namespace gd {
         int m_unk10C;
         float m_opacity; //0x0110
         float m_unk114;
-        cocos2d::ccHSVValue m_obCopyHSV;
+        float m_copyHue;
+        float m_copySaturation;
+        float m_copyBrightness;
+        bool m_saturationChecked;
+        bool m_brightnessChecked;
         int m_copyID; // 0x128 color that youre copying
         PAD(1);
         bool m_copyOpacity;

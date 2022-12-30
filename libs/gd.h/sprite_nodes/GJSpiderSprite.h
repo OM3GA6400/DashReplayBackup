@@ -7,7 +7,7 @@ namespace gd {
 
 	class GJRobotSprite;
 
-	class GDH_DLL GJSpiderSprite : public GJRobotSprite {
+	class GJSpiderSprite : public GJRobotSprite {
 
 	};
 }

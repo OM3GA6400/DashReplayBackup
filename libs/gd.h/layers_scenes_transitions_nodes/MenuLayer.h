@@ -6,9 +6,9 @@
 namespace gd {
 	class FLAlertLayerProtocol;
 
-	class GDH_DLL MenuLayer : public cocos2d::CCLayer, public FLAlertLayerProtocol, public GooglePlayDelegate {
+	class MenuLayer : public cocos2d::CCLayer, public FLAlertLayerProtocol, public GooglePlayDelegate {
 	public:
-		static MenuLayer* create() {
+		static MenuLayer* node() {
 			return reinterpret_cast<MenuLayer*(__stdcall*)()>(base + 0x190550)();
 		}
 		static cocos2d::CCScene* scene(bool options) {

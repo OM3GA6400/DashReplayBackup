@@ -171,11 +171,10 @@ namespace ImGuiHook
 		ImGui::CreateContext();
 
 		ImGuiIO& io = ImGui::GetIO();
-		io.Fonts->AddFontFromMemoryTTF(fontData, sizeof(fontData), 14.f);
+		io.Fonts->AddFontFromMemoryTTF(fontData, sizeof(fontData), 14.f, NULL, io.Fonts->GetGlyphRangesCyrillic());
 		io.IniFilename = NULL;
 		ApplyColor();
 		ApplyStyle();
-
 		tStatus &= ImGui_ImplWin32_Init(hWnd);
 		tStatus &= ImGui_ImplOpenGL2_Init();
 
