@@ -1,543 +1,436 @@
-#include <windows.h>
-#include <shellapi.h>
-#include <cocos2d.h>
-#include <gd.h>
-#include <string.h>
-#include "console.h"
-#include "fpsBypass.h"
-#include "playLayer.h"
-#include "spamBot.h"
-#include <imgui_hook.h>
-#include <imgui_internal.h>
+#pragma comment(linker,"\"/manifestdependency:type='win32' \
+name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
+processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+#include "pch.h"
+#include <imgui-hook.hpp>
 #include <imgui.h>
+#include <imgui_internal.h>
+#include "replayEngine.h"
+#include "framerate.h"
+#include "playLayer.h"
+#include "speedhackAudio.h"
+#include "hooks.h"
+#include "spambot.h"
+#include "editor.h"
+#include "clicks.h"
+#include "hacks.h"
 
-using namespace cocos2d;
-
-bool nolcip;
-bool practice_music_hack;
-bool practice_coins;
-bool anticheat_bypass;
-bool ignore_esc;
-bool no_respawn_flash;
-bool disable_death_effects;
-
-bool show = false;
+bool show = true;
 bool inited = false;
+bool windowRecordOverwrite = true;
+static float fadeTimer = 4.0f;
 
-bool isRecording;
+char* items[] = {"General", "Assist", "Editor", "Recorder", "Sequence", "Converter", "Clickbot", "Hacks", "About"};
+char* converterTypes[] = {"Plain Text (.txt)"};
+int index = 0;
 
-const char* converterTypes[]{"Plain Text (.txt)"};
-int converterType = 0;
-
-vector<string> items = { "General", "Assist", "Editor", "Converter", "Sequential Play", "Hacks", "About"};
-int item_current_idx = 0;
-
-int replay_select_player_p1 = 1;
-int replay_current = 0;
-
-char replay_name[128] = "";
+bool opennedSP = false;
 vector<string> replay_list;
-bool openned = false;
 
-bool overwrite = false;
-bool loading = false;
 
-void ConfirmMessage(float x, float y) {
-    ImGui::SetNextWindowPos(ImVec2(x, y));
-    ImGui::SetNextWindowSize(ImVec2(280, 75));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1);
-    ImGui::Begin("##nani", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
-    ImGui::Text("Warning!");
-    ImGui::Text("This will overwrite your currently loaded replay");
-    if (ImGui::Button("Yes")) {
-        if (loading) {
-            playLayer::clearMacro();
-            playLayer::loadReplay(".DashReplay/" + (string)replay_name);
+void SelectReplay() {
+    auto itemx = ImGui::GetItemRectMin().x;
+    auto itemy = ImGui::GetItemRectMax().y;
+    auto itemw = ImGui::GetItemRectSize().x;
+    ImGui::SameLine(0);
+    if (ImGui::ArrowButton("##comboopen", opennedSP ? ImGuiDir_Up : ImGuiDir_Down))  {
+        opennedSP = !opennedSP; 
+        if (opennedSP) {
+            replay_list.clear();
+            for (const auto & entry : filesystem::directory_iterator("DashReplay/Replays")) {
+                string replay = entry.path().filename().string();
+                if (replay.find(".json") != std::string::npos) {
+                    replay_list.push_back(entry.path().filename().string().erase(replay.size()-5, replay.size()));
+                }
+            }
         }
-        else {
-            playLayer::clearMacro();
-        }
-        overwrite = false;
+    }   
+    if (opennedSP) {
+        ImGui::SetNextWindowPos(ImVec2(itemx, itemy + 4));
+        ImGui::SetNextWindowSize(ImVec2(itemw + ImGui::GetItemRectSize().x, NULL));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1);
+        ImGui::Begin("##replaylist", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+        for (int i = 0; i < (int)replay_list.size(); i++) {
+            if (ImGui::MenuItem(replay_list[i].c_str())) {
+                strcpy_s(dashreplay::info::replay_name, replay_list[i].c_str());
+                opennedSP = false;
+            }
+        }            
+        ImGui::End();
+        ImGui::PopStyleVar();
     }
-    ImGui::SameLine();
-    if (ImGui::Button("No")) {
-        overwrite = false;
-    }
-    ImGui::End();
-    ImGui::PopStyleVar();
 }
 
 void RenderMain() {
-    CCDirector::sharedDirector()->getTouchDispatcher()->setDispatchEvents(!ImGui::GetIO().WantCaptureMouse);
     if (show) {
-        ImGui::Begin("DashReplay", &show, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus);
         if (!inited) {
-            ImGui::SetWindowPos(ImVec2(10, 10));
-            ImGui::SetWindowSize(ImVec2(500, 300));
+            ImGui::SetNextWindowSize(ImVec2(600, 400));
+            ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+            ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
             inited = true;
         }
-
-        if (ImGui::BeginChild("##LeftSide", ImVec2(120, ImGui::GetContentRegionAvail().y), true))
-        {	
-            for (int i = 0; i < (int)items.size(); i++)
-            {
-                const bool is_selected = (item_current_idx == i);
-                if (ImGui::Selectable(items[i].c_str(), is_selected))
-                    item_current_idx = i;
-
-                if (is_selected)
-                    ImGui::SetItemDefaultFocus();
-            }
-            ImGui::EndChild();
+        
+        ImGui::Begin("DashReplay", &show, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBringToFrontOnFocus);
+        ImGui::BeginChild("##leftside", ImVec2(150, NULL));
+        for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+        {
+            bool is_selected = (index == n);
+            if (ImGui::Selectable(items[n], is_selected)) index = n;
         }
+        ImGui::EndChild();
 
         ImGui::SameLine();
+        ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
+        ImGui::SameLine(0, 5);
 
-        if (ImGui::BeginChild("##RigthSide", ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y), true))
-        {
-            if (item_current_idx == 0) {
-                if (ImGui::RadioButton("Disable", &playLayer::mode, 0)) {
-                    playLayer::checkpoints_p1.clear();
-                    playLayer::checkpoints_p2.clear();
+        ImGui::BeginChild("##rightside", ImVec2(NULL, NULL));   
+
+        if (index == 0) {
+            ImGui::RadioButton("Disable", &dashreplay::info::mode, state::disable); ImGui::SameLine();
+            if (ImGui::RadioButton("Record", &dashreplay::info::mode, state::record)) {
+                dashreplay::replay::p1.clear();
+                dashreplay::replay::p2.clear();
+                if (gd::GameManager::sharedState()->getGameVariable("0027")) { //Disabling Auto-Checkpoints option
+                    gd::GameManager::sharedState()->setGameVariable("0027", false); 
+                }                 
+            }
+            ImGui::SameLine();
+
+            if (ImGui::RadioButton("Play", &dashreplay::info::mode, state::play)) {
+
+            }
+            ImGui::Separator();
+            ImGui::InputText("##replay", dashreplay::info::replay_name, IM_ARRAYSIZE(dashreplay::info::replay_name));
+            SelectReplay();
+
+            if (ImGui::Button("Save", ImVec2(80, NULL))) {
+                if (((dashreplay::info::replay_name != NULL) && (dashreplay::info::replay_name[0] == '\0'))) 
+                    gd::FLAlertLayer::create(nullptr, "Info", "Ok", nullptr, "Replay name is empty")->show(); 
+                else {
+                    if (dashreplay::replay::save()) gd::FLAlertLayer::create(nullptr, "Info", "Ok", nullptr, "Replay saved")->show();
+                    else gd::FLAlertLayer::create(nullptr, "Info", "Ok", nullptr, "Replay doesn't have actions")->show();
                 }
+            }
 
-                ImGui::SameLine();
+            ImGui::SameLine();
 
-                if (ImGui::RadioButton("Record", &playLayer::mode, 1)) {
-                     if (practice_music_hack && anticheat_bypass) {
-                        playLayer::replay_p1.clear();
-                        playLayer::replay_p2.clear();
-                        playLayer::checkpoints_p1.clear();
-                        playLayer::checkpoints_p2.clear();
+            if (ImGui::Button("Load", ImVec2(80, NULL))) {
+                if (dashreplay::replay::load()) {
+                    gd::FLAlertLayer::create(nullptr, "Info", "Ok", nullptr, "Replay loaded")->show(); 
+                }
+                else {
+                    gd::FLAlertLayer::create(nullptr, "Info", "Ok", nullptr, "Replay doesn't exist")->show(); 
+                }
+            }
+
+            ImGui::SameLine();
+
+            if (ImGui::Button("Clear Replay", ImVec2(108, NULL))) {
+                dashreplay::replay::p1.clear();
+                dashreplay::replay::p2.clear();
+            }
+
+            ImGui::Separator();
+
+            ImGui::PushItemWidth(135.f);
+            ImGui::DragFloat("##FPS", &dashreplay::info::fps, 1.f, 1.f, FLT_MAX, "FPS: %.2f");
+
+            ImGui::SameLine();
+
+            ImGui::PushItemWidth(137.f);
+            if (ImGui::DragFloat("##Speed", &dashreplay::info::speedhack, 0.01f, 0.f, FLT_MAX, "Speed: %.2f")) {
+                if (dashreplay::advanced::speedhack_audio) speedhack_audio::set(dashreplay::info::speedhack);
+            }
+
+            ImGui::Separator();
+
+            ImGui::Checkbox("Practice Fix (Recommended)", &dashreplay::fixes::practice_fix);
+            ImGui::SameLine();
+            ImGui::Checkbox("Accuracy Fix", &dashreplay::fixes::accuracy_fix);
+
+            ImGui::Separator();
+
+            ImGui::Checkbox("Ignore Inputs on Playing", &dashreplay::advanced::ignore_input);
+            ImGui::SameLine();
+
+            if (ImGui::Checkbox("Speedhack Audio", &dashreplay::advanced::speedhack_audio)) {
+                if (dashreplay::advanced::speedhack_audio)  {
+                    speedhack_audio::set(dashreplay::info::speedhack);
+                }
+                else {
+                    speedhack_audio::set(1.f);
+                }
+            }
+
+            ImGui::Separator();
+
+            ImGui::Text("Frame %i", dashreplay::frame::get_frame());
+        }  
+        else if (index == 1) {
+            ImGui::Checkbox("Frame Advance", &dashreplay::frameadvance::enabled);
+            ImGui::Separator();
+            ImGui::Checkbox("Auto-Clicker", &spambot::enable);
+            
+            ImGui::SameLine();
+            ImGui::PushItemWidth(100.f);	
+            ImGui::DragInt("##spamhold", &spambot::push, 1, 1, INT_MAX, "Hold: %i");
+
+            ImGui::SameLine();
+            ImGui::PushItemWidth(100.f);	
+            ImGui::DragInt("##spamreelase", &spambot::release, 1, 1, INT_MAX, "Release: %i");
+
+            ImGui::Checkbox("Player 1", &spambot::player1);
+            ImGui::SameLine();
+            ImGui::Checkbox("Player 2", &spambot::player2);
+
+            ImGui::Separator();     
+
+            ImGui::Checkbox("Dual Clicks", &dashreplay::advanced::dual_clicks); 
+        }  
+        else if (index == 2) {
+            editor::render();
+        }
+        else if (index == 3) {
+            ImGui::Text("Output Name:");
+            ImGui::InputText("##video_name", dashreplay::irecorder::video_name, IM_ARRAYSIZE(dashreplay::irecorder::video_name));
+            ImGui::SameLine();
+            if (ImGui::Button(dashreplay::irecorder::recorder_c ? "Recording..." : "Record")) {
+                if ((dashreplay::irecorder::video_name != NULL) && (dashreplay::irecorder::video_name[0] == '\0')) {
+                    gd::FLAlertLayer::create(nullptr, "Info", "Ok", nullptr, "Invalid output name")->show();
+                }
+                else {
+                    if (!gd::GameManager::sharedState()->getPlayLayer()) {
+                        gd::FLAlertLayer::create(nullptr, "Info", "Ok", nullptr, "You are not in the level")->show();
                     }
                     else {
-                        playLayer::mode = 0;
-                    }
-                }
-
-                if (!practice_music_hack || !anticheat_bypass) {
-                    if (ImGui::IsItemHovered())
-                        ImGui::SetTooltip("Enable \"Practice Music Hack\" and \"Anticheat bypass\"");
-                }
-
-                ImGui::SameLine();
-
-                ImGui::RadioButton("Play", &playLayer::mode, 2);
-
-                ImGui::Separator();
-
-                ImGui::InputText("##replayinput", replay_name, IM_ARRAYSIZE(replay_name));
-                auto itemx = ImGui::GetItemRectMin().x;
-                auto itemy = ImGui::GetItemRectMax().y;
-                auto itemw = ImGui::GetItemRectSize().x;
-                ImGui::SameLine(0);
-                if (ImGui::ArrowButton("##comboopen", openned ? ImGuiDir_Up : ImGuiDir_Down))  {
-                    openned = !openned; 
-                    if (openned) {
-                        replay_list.clear();
-                        for (const auto & entry : filesystem::directory_iterator(".DashReplay")) {
-                            replay_list.push_back(entry.path().filename().string());
-                        }
-                    }
-                }   
-                if (openned) {
-                    ImGui::SetNextWindowPos(ImVec2(itemx, itemy + 4));
-                    ImGui::SetNextWindowSize(ImVec2(itemw + ImGui::GetItemRectSize().x, NULL));
-                    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1);
-                    ImGui::Begin("##MacroList", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
-                    for (int i = 0; i < (int)replay_list.size(); i++) {
-                        if (ImGui::MenuItem(replay_list[i].c_str())) {
-                            strcpy_s(replay_name, replay_list[i].c_str());
-                            openned = false;
-                        }
-                    }            
-                    ImGui::End();
-                    ImGui::PopStyleVar();
-                }
-
-                if (ImGui::Button("Load", {60, NULL})) { 
-                    if (playLayer::replay_p1.empty()) {
-                        playLayer::clearMacro();
-                        playLayer::loadReplay(".DashReplay/" + (string)replay_name);
-                    }
-                    else {
-                        overwrite = true;
-                        loading = true;
-                    }                   
-
-                }
-
-                if (overwrite) {
-                    ConfirmMessage(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4);
-                }
-
-                ImGui::SameLine();
-
-                if (ImGui::Button("Save", {60, NULL})) {           
-                    playLayer::saveReplay(".DashReplay/" + (string)replay_name);
-                }
-
-                ImGui::SameLine();
-                if (ImGui::Button("Clear Replay", {80, NULL})) {
-                    if (playLayer::replay_p1.empty()) playLayer::clearMacro();
-                    else  {
-                        overwrite = true;
-                        loading = false;
-                    }
-                }
-                ImGui::Separator();
-
-                ImGui::PushItemWidth(160.f);
-                ImGui::DragFloat("##FPS", &FPSMultiplier::g_target_fps, 1.f, 1.f, FLT_MAX, "FPS: %.2f");
-
-                ImGui::SameLine();
-
-                ImGui::PushItemWidth(160.f);
-                if (ImGui::DragFloat("##Speed", &playLayer::speedvalue, 0.01f, 0.f, FLT_MAX, "Speed: %.2f")) {
-                    if (playLayer::speedvalue != 0) { CCDirector::sharedDirector()->getScheduler()->setTimeScale(playLayer::speedvalue); }
-                }
-
-                ImGui::Separator();
-                ImGui::Checkbox("Practice Fix", &playLayer::practice_fix);
-                ImGui::SameLine();
-                ImGui::Checkbox("Accuracy Fix", &playLayer::accuracy_fix);
-                if (playLayer::accuracy_fix) {ImGui::SameLine(); ImGui::Checkbox("Rotation Fix", &playLayer::rotation_fix);}
-                ImGui::Separator();
-                ImGui::Checkbox("FPS Bypass", &FPSMultiplier::fpsbypass_enabled);
-                ImGui::SameLine();
-                ImGui::Checkbox("FPS Multiplier", &FPSMultiplier::g_enabled);
-                ImGui::Separator();
-                ImGui::Checkbox("Ignore Inputs on Playback", &playLayer::ignore_input);
-                ImGui::Separator();
-                ImGui::Text("Frame: %i", playLayer::frame);
-                ImGui::Text("Replay Size: %i (P2: %i)", (int)playLayer::replay_p1.size(), (int)playLayer::replay_p2.size());
-            }
-
-            if (item_current_idx == 1) {
-                ImGui::Checkbox("Frame Advance", &FPSMultiplier::frame_advance);
-                ImGui::Separator();
-                ImGui::Checkbox("Spam Bot", &spambot::enable);
-
-                ImGui::SameLine();
-                ImGui::PushItemWidth(100.f);	
-                ImGui::DragInt("##spampush", &spambot::push, 1, 1, INT_MAX, "Push: %i");
-
-                ImGui::SameLine();
-                ImGui::PushItemWidth(100.f);	
-                ImGui::DragInt("##spamreelase", &spambot::release, 1, 1, INT_MAX, "Release: %i");
-
-                ImGui::Checkbox("1 Player", &spambot::player1);
-                ImGui::SameLine();
-                ImGui::Checkbox("2 Player", &spambot::player2);
-                ImGui::Separator();  
-                ImGui::Checkbox("Dual Clicks", &playLayer::dual_clicks);          
-
-            }
-
-            if (item_current_idx == 2) {
-                if (ImGui::BeginChild("##LeftSideEditor", ImVec2(120, ImGui::GetContentRegionAvail().y), true))
-                {	
-                    for (int i = 0; i < (int)playLayer::replay_p1.size(); i++)
-                    {
-                        const bool is_selected = (replay_current == i);
-                        ImGui::PushItemWidth(120.f);
-                        if (ImGui::Selectable(to_string(playLayer::replay_p1[i].frame).c_str(), is_selected))
-                            replay_current = i;
-
-                        if (is_selected)
-                            ImGui::SetItemDefaultFocus();
-                    }
-                    ImGui::EndChild();
-                }
-
-
-                ImGui::SameLine();
-
-                if (ImGui::BeginChild("##RightSideEditor", ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y), true))
-                {	
-                    if (!playLayer::replay_p1.empty() && replay_select_player_p1) {
-                        ImGui::DragFloat("##POSXP1", &playLayer::replay_p1[replay_current].pos_x, 0.000001f, -1, FLT_MAX, "Position X: %f");
-                        ImGui::DragFloat("##POSYP1", &playLayer::replay_p1[replay_current].pos_y, 0.000001f, -1, FLT_MAX, "Position Y: %f");
-                        ImGui::DragFloat("##ROTATEP1", &playLayer::replay_p1[replay_current].rotation, 0.000001f, -1, FLT_MAX, "Rotation: %f");
-                        ImGui::DragFloat("##YVELP1", &playLayer::replay_p1[replay_current].y_vel, 0.000001f, -1, FLT_MAX, "Y Vel: %f");
-                        ImGui::DragInt("##DOWNP1", &playLayer::replay_p1[replay_current].down, 1, -1, 1, "Down: %i");
-                    }
-
-                    if (!playLayer::replay_p2.empty() && !replay_select_player_p1) {
-                        ImGui::DragFloat("##POSXP2", &playLayer::replay_p2[replay_current].pos_x, 0.000001f, -1, FLT_MAX, "Position X: %f");
-                        ImGui::DragFloat("##POSYP2", &playLayer::replay_p2[replay_current].pos_y, 0.000001f, -1, FLT_MAX, "Position Y: %f");
-                        ImGui::DragFloat("##ROTATEP2", &playLayer::replay_p2[replay_current].rotation, 0.000001f, -1, FLT_MAX, "Rotation: %f");
-                        ImGui::DragFloat("##YVELP2", &playLayer::replay_p2[replay_current].y_vel, 0.000001f, -1, FLT_MAX, "Y Vel: %f");
-                        ImGui::DragInt("##DOWNP2", &playLayer::replay_p2[replay_current].down, 1, -1, 1, "Down: %i");
-                    }    
-                    ImGui::Text("Note: -1 value does nothing with\nplayer");
-                    ImGui::Separator();
-                    ImGui::RadioButton("Player 1", &replay_select_player_p1, 1);
-                    ImGui::SameLine();
-                    ImGui::RadioButton("Player 2", &replay_select_player_p1, 0);
-                    ImGui::Separator();
-                    ImGui::EndChild();
-                }
-            }
-
-            if (item_current_idx == 3) {
-                ImGui::Combo("##ConverterType", &converterType, converterTypes, IM_ARRAYSIZE(converterTypes));
-                if (ImGui::Button("Convert")) {
-                    if (converterType == 0) {
-                        if (converterType == 0) {
-                            std::ofstream out(".DashReplay/converted.txt");
-                            out << FPSMultiplier::g_target_fps << "\n";
-                            for (int i = 0; i < (int)playLayer::replay_p1.size(); i++) {
-                                if (i == 0 || (playLayer::replay_p1[i].down == playLayer::replay_p1[i - 1].down && playLayer::replay_p2[i].down == playLayer::replay_p2[i - 1].down))
-                                    continue;
-                                out << i << " " << playLayer::replay_p1[i].down << " " << playLayer::replay_p2[i].down << "\n";
+                        if (clicks::include_clicks) {
+                            if (((clicks::clickpack != NULL) && (clicks::clickpack[0] == '\0'))) {
+                                gd::FLAlertLayer::create(nullptr, "Info", "Ok", nullptr, "Important! Clickpack not selected, the clicks will not be included in video. Go to \"Clickbot\" tab and select clickpack.")->show();
                             }
-                            out.close();	
                         }
-                    }
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Matcool Converter")) {
-                    ShellExecuteA(0, "open", "https://matcool.github.io/gd-macro-converter/", 0, 0, SW_SHOWNORMAL);
-                }
-                if (converterType == 0) {
-                    ImGui::Text("Replay will be saved to \".DashReplay/converted.txt\"");
-                }
-            }
-
-            if (item_current_idx == 4) {
-                ImGui::Checkbox("Toggle Sequential Play", &playLayer::enable_sqp);
-                ImGui::SameLine();
-                ImGui::Checkbox("Random Replay", &playLayer::random_sqp);
-                ImGui::InputText("##replayinputinsqp", replay_name, IM_ARRAYSIZE(replay_name));
-                auto itemx = ImGui::GetItemRectMin().x;
-                auto itemy = ImGui::GetItemRectMax().y;
-                auto itemw = ImGui::GetItemRectSize().x;
-                ImGui::SameLine();
-                if (ImGui::ArrowButton("##comboopeninsqp", openned ? ImGuiDir_Up : ImGuiDir_Down))  {
-                    openned = !openned; 
-                    if (openned) {
-                        replay_list.clear();
-                        for (const auto & entry : filesystem::directory_iterator(".DashReplay")) {
-                            replay_list.push_back(entry.path().filename().string());
+                        if (std::filesystem::exists("ffmpeg.exe")) {
+                            dashreplay::irecorder::recorder_c = !dashreplay::irecorder::recorder_c;
+                            if (dashreplay::irecorder::recorder_c) {
+                                dashreplay::info::mode = state::play;
+                                dashreplay::irecorder::recorder.start("DashReplay/Videos/" + (string)dashreplay::irecorder::video_name);
+                            }
+                            else {
+                                if (dashreplay::irecorder::recorder.m_recording)
+                                    dashreplay::irecorder::recorder.stop();
+                            }
                         }
-                    }
-                }   
-                if (openned) {
-                    ImGui::SetNextWindowPos(ImVec2(itemx, itemy + 4));
-                    ImGui::SetNextWindowSize(ImVec2(itemw + ImGui::GetItemRectSize().x, NULL));
-                    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1);
-                    ImGui::Begin("##MacroListInSQP", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
-                    for (int i = 0; i < (int)replay_list.size(); i++) {
-                        if (ImGui::MenuItem(replay_list[i].c_str())) {
-                            strcpy_s(replay_name, replay_list[i].c_str());
-                            openned = false;
-                        }
-                    }            
-                    ImGui::End();
-                    ImGui::PopStyleVar();
-                }
-
-                ImGui::SameLine();
-
-                if (ImGui::Button("Add")) {
-                    playLayer::macro_sqp.push_back((string)replay_name);
-                }
-
-                ImGui::Text("Current Replay %i/%i", playLayer::sqp_current_idx + 1, playLayer::macro_sqp.size());
-                
-                if (ImGui::BeginChild("##SQPPanel", ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y), true))
-                {	
-                    for (int i = 0; i < (int)playLayer::macro_sqp.size(); i++)
-                    {
-                        if (ImGui::MenuItem(playLayer::macro_sqp[i].c_str())) {
-                            playLayer::macro_sqp.erase(playLayer::macro_sqp.begin()+i);
-                        }
-                    }
-                    ImGui::EndChild();
-                }
-
-                ImGui::SameLine();
-
-                if (ImGui::Button("Clear All")) {
-                    playLayer::macro_sqp.clear();
-                }
-            }
-
-            if (item_current_idx == 5) {
-                if (ImGui::Checkbox("Noclip", &nolcip)) {
-                    if (nolcip) {
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20A23C), "\xE9\x79\x06\x00\x00", 5, NULL);
-                    }
-                    else {
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20A23C), "\x6A\x14\x8B\xCB\xFF", 5, NULL);
-                    }
-                }
-
-                if (ImGui::Checkbox("Practice Music Hack", &practice_music_hack)) {
-                    if (practice_music_hack) {
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20C925), "\x90\x90\x90\x90\x90\x90", 6, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20D143), "\x90\x90", 2, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20A563), "\x90\x90", 2, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20A595), "\x90\x90", 2, NULL);
-                    }
-                    else {
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20C925), "\x0F\x85\xF7\x00\x00\x00", 6, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20D143), "\x75\x41", 2, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20A563), "\x75\x3E", 2, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20A595), "\x75\x0C", 2, NULL);
-                    }
-                }
-
-                if (ImGui::Checkbox("Ignore ESC", &ignore_esc)) {
-                    if (ignore_esc) {
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1E644C), "\x90\x90\x90\x90\x90", 5, NULL);
-                    }
-                    else {
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1E644C), "\xE8\xBF\x73\x02\x00", 5, NULL);
-                    }
-                }
-
-                if (ImGui::Checkbox("No Respawn Flash", &no_respawn_flash)) {
-                    if (no_respawn_flash) {
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1EF36D), "\xE9\xA8\x00\x00\x00\x90", 6, NULL);
-                    }
-                    else {
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1EF36D), "\x0F\x85\xA7\x00\x00\x00", 6, NULL);
-                    }
-                }
-
-                if (ImGui::Checkbox("Disable Death Effects", &disable_death_effects)) {
-                    if (disable_death_effects) {
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1EFBA4), "\x90\x90\x90\x90\x90", 5, NULL);
-                    }
-                    else {
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1EFBA4), "\xE8\x37\x00\x00\x00", 5, NULL);
-                    }
-                }
-
-                if (ImGui::Checkbox("Practice Coins", &practice_coins)) {
-                    if (practice_coins) {
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x204F10), "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90", 13, NULL);
-                    }
-                    else {
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x204F10), "\x80\xBE\x95\x04\x00\x00\x00\x0F\x85\xDE\x00\x00\x00", 13, NULL);
-                    }
-                }
-
-                if (ImGui::Checkbox("Anticheat Bypass", &anticheat_bypass)) {
-                    if (anticheat_bypass) {
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x202AAA), "\xEB\x2E", 2, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x15FC2E), "\xEB", 1, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20D3B3), "\x90\x90\x90\x90\x90", 5, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1FF7A2), "\x90\x90", 2, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x18B2B4), "\xB0\x01", 2, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20C4E6), "\xE9\xD7\x00\x00\x00\x90", 6, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1FD557), "\xEB\x0C", 2, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1FD742), "\xC7\x87\xE0\x02\x00\x00\x01\x00\x00\x00\xC7\x87\xE4\x02\x00\x00\x00\x00\x00\x00\x90\x90\x90\x90\x90\x90", 26, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1FD756), "\x90\x90\x90\x90\x90\x90", 6, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1FD79A), "\x90\x90\x90\x90\x90\x90", 6, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1FD7AF), "\x90\x90\x90\x90\x90\x90", 6, NULL);
-                    }
-                    else {
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x202AAA), "\x74\x2E", 2, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x15FC2E), "\x74", 1, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20D3B3), "\xE8\x58\x04\x00\x00", 5, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1FF7A2), "\x74\x6E", 2, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x18B2B4), "\x88\xD8", 2, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x20C4E6), "\x0F\x85\xD6\x00\x00\x00", 6, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1FD557), "\x74\x0C", 2, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1FD742), "\x80\xBF\xDD\x02\x00\x00\x00\x0F\x85\x0A\xFE\xFF\xFF\x80\xBF\x34\x05\x00\x00\x00\x0F\x84\xFD\xFD\xFF\xFF", 26, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1FD557), "\x74\x0C", 2, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1FD756), "\x0F\x84\xFD\xFD\xFF\xFF", 6, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1FD79A), "\x0F\x84\xB9\xFD\xFF\xFF", 6, NULL);
-                        WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(gd::base + 0x1FD7AF), "\x0F\x85\xA4\xFD\xFF\xFF", 6, NULL);
+                        else {
+                            gd::FLAlertLayer::create(nullptr, "Info", "Ok", nullptr, "FFmpeg not found")->show();
+                        } 
                     }
                 }
             }
+            ImGui::Separator();
 
-            if (item_current_idx == 6) {
-                ImGui::Text("DashReplay GUI v2.3.0b");
-                ImGui::Text("DashReplay Engine v3.2.0");
-                ImGui::Text("DashReplay created by TobyAdd, Powered by Dear ImGui");
-                ImGui::Separator();
-                ImGui::Text("Rigth/Left Alt - Toggle UI");
-                ImGui::Text("C - Enable Frame Advance + Next Frame");
-                ImGui::Text("F - Disable Frame Advance");
-                ImGui::Text("P - Toggle Playback");
-                ImGui::Text("S - Spam Bot Toggle");
-                ImGui::Separator();
-                ImGui::Text("Special Thanks:");
-                ImGui::Text("HJfod Absolute Adaf Eimaen Ubuntu Matcool qb");
-                ImGui::Text("Everyone who tested DashReplay");
-                ImGui::Text("And DashReplay Community");
-                ImGui::Separator();
-                if (ImGui::MenuItem("Discord Server")) ShellExecuteA(0, "open", "https://discord.com/invite/mQHXzG72vU", 0, 0, SW_SHOWNORMAL);
+            int width = (int)dashreplay::irecorder::recorder.m_width;
+            ImGui::PushItemWidth(40.f);
+            if (ImGui::InputInt("##ir_width", &width, 0)) {
+                dashreplay::irecorder::recorder.m_width = width;
+            }
 
+            ImGui::SameLine();
+            ImGui::Text("x");
+            ImGui::SameLine();
+
+            int height = (int)dashreplay::irecorder::recorder.m_height;
+            ImGui::PushItemWidth(40.f);
+            if (ImGui::InputInt("##ir_height", &height, 0)) {
+                dashreplay::irecorder::recorder.m_height = height;
+            }
+
+            ImGui::SameLine();
+            ImGui::Text("@");
+            ImGui::SameLine();
+
+            int fps = (int)dashreplay::irecorder::recorder.m_fps;
+            ImGui::PushItemWidth(40.f);
+            if (ImGui::InputInt("FPS##ir_fps", &fps, 0)) {
+                dashreplay::irecorder::recorder.m_fps = fps;
+            }
+            
+            char bitrate[128];
+            strcpy_s(bitrate, dashreplay::irecorder::recorder.m_bitrate.c_str());
+            ImGui::PushItemWidth(50.f);
+            if (ImGui::InputText("Bitrate##ir_birtate", bitrate, IM_ARRAYSIZE(bitrate))) {
+                dashreplay::irecorder::recorder.m_bitrate = (string)bitrate;
+            }
+
+            ImGui::SameLine();
+
+            char codec[128];
+            strcpy_s(codec, dashreplay::irecorder::recorder.m_codec.c_str());
+            ImGui::PushItemWidth(60.f);
+            if (ImGui::InputText("Codec##ir_codec", codec, IM_ARRAYSIZE(codec))) {
+                dashreplay::irecorder::recorder.m_codec = (string)codec;
+            }
+
+            ImGui::Separator();
+
+            ImGui::Text("Extra arguments:");
+
+            char args[128];
+            strcpy_s(args, dashreplay::irecorder::recorder.m_extra_args.c_str());
+            ImGui::PushItemWidth(350.f);
+            if (ImGui::InputText("##ir_args", args, IM_ARRAYSIZE(args))) {
+                dashreplay::irecorder::recorder.m_extra_args = (string)args;
+            }
+
+            ImGui::Separator();
+
+            ImGui::Text("Extra audio arguments:");
+
+            char args_a[128];
+            strcpy_s(args_a, dashreplay::irecorder::recorder.m_extra_audio_args.c_str());
+            ImGui::PushItemWidth(350.f);
+            if (ImGui::InputText("##ir_args_a", args_a, IM_ARRAYSIZE(args_a))) {
+                dashreplay::irecorder::recorder.m_extra_audio_args = (string)args_a;
+            }
+
+            ImGui::Separator();
+
+            if (ImGui::Button("HD")) {
+                dashreplay::irecorder::recorder.m_width = 1280;
+                dashreplay::irecorder::recorder.m_height = 720;
+                dashreplay::irecorder::recorder.m_fps = 60;
+                dashreplay::irecorder::recorder.m_bitrate = "15M";
+            }
+
+            ImGui::SameLine();
+
+            if (ImGui::Button("FULL HD")) {
+                dashreplay::irecorder::recorder.m_width = 1920;
+                dashreplay::irecorder::recorder.m_height = 1080;
+                dashreplay::irecorder::recorder.m_fps = 60;
+                dashreplay::irecorder::recorder.m_bitrate = "50M";
+            }
+
+            ImGui::SameLine();
+
+            if (ImGui::Button("4K")) {
+                dashreplay::irecorder::recorder.m_width = 3840;
+                dashreplay::irecorder::recorder.m_height = 2160;
+                dashreplay::irecorder::recorder.m_fps = 60;
+                dashreplay::irecorder::recorder.m_bitrate = "70M";
             }
         }
+        else if (index == 4) {
+            ImGui::Checkbox("Toggle", &dashreplay::sequence::enable_sqp);
+            ImGui::SameLine();
+            ImGui::Checkbox("Random Sequence", &dashreplay::sequence::random_sqp);
+            if (!dashreplay::sequence::replays.empty()) {
+                ImGui::SameLine(NULL, 50);            
+                ImGui::Text("Current Replay: %s", dashreplay::sequence::replays[dashreplay::sequence::current_idx].c_str());
+            }
+            ImGui::PushItemWidth(250.f);
+            ImGui::InputText("##sequence_input", dashreplay::sequence::replay_sq_name, IM_ARRAYSIZE(dashreplay::sequence::replay_sq_name));
+            ImGui::SameLine();
 
+            if (ImGui::Button("Add")) {
+                dashreplay::sequence::replays.push_back((string)dashreplay::sequence::replay_sq_name);
+                dashreplay::sequence::first_sqp = true;
+            }
+
+            ImGui::SameLine();
+
+            if (ImGui::Button("Remove")) {
+                if (dashreplay::sequence::replays.size() > (size_t)dashreplay::sequence::current_idx) {
+                    dashreplay::sequence::replays.erase(dashreplay::sequence::replays.begin()+dashreplay::sequence::current_idx);
+                    dashreplay::sequence::first_sqp = true;
+                }                    
+            }
+
+            ImGui::SameLine();
+
+            if (ImGui::Button("Remove All")) {
+                dashreplay::sequence::replays.clear();
+                dashreplay::sequence::first_sqp = true;
+            }
+
+            if (ImGui::BeginChild("##sqp_panel", ImVec2(NULL, NULL), true))
+            {	
+                for (size_t n = 0; n < dashreplay::sequence::replays.size(); n++)
+                {
+                    bool is_selected = (dashreplay::sequence::current_idx == n);
+                    string anticonflict = dashreplay::sequence::replays[n] + "##" + to_string(n);
+                    if (ImGui::Selectable(anticonflict.c_str(), is_selected)) dashreplay::sequence::current_idx = n;
+                }
+                ImGui::EndChild();
+            }
+        }
+        else if (index == 5) {
+            ImGui::Combo("##ConverterType", &dashreplay::converter::converterType, converterTypes, IM_ARRAYSIZE(converterTypes));
+            if (ImGui::Button("Convert")) {
+                dashreplay::converter::convert();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Matcool Converter")) {
+                ShellExecuteA(0, "open", "https://matcool.github.io/gd-macro-converter/", 0, 0, SW_SHOWNORMAL);
+            }
+            if (dashreplay::converter::converterType == 0) {
+                ImGui::Text("Replay will be saved to \"DashReplay/converted.txt\"");
+            }
+        }
+        else if (index == 6) {
+            clicks::render();
+        }
+        else if (index == 7) {
+            hacks::render();
+        }
+
+        ImGui::EndChild();
         ImGui::End();
     }
 }
 
-inline void(__thiscall* dispatchKeyboardMSG)(void* self, int key, bool down);
-void __fastcall dispatchKeyboardMSGHook(void* self, void*, int key, bool down) {
-	dispatchKeyboardMSG(self, key, down);
-    auto pl = gd::GameManager::sharedState()->getPlayLayer();
-    if (down && key == 18) {
+void CreateDir() {
+    if (!std::filesystem::is_directory("DashReplay") || !std::filesystem::exists("DashReplay")) {
+        std::filesystem::create_directory("DashReplay");
+        std::filesystem::create_directory("DashReplay/Replays");
+        std::filesystem::create_directory("DashReplay/Videos");
+        std::filesystem::create_directory("DashReplay/Clicks");
+    }
+}
+
+DWORD WINAPI ThreadMain(void* hModule) {
+    srand((unsigned)time(NULL));
+    Console::Unlock();
+    memory::get_hwnd();
+    if (!IsWindows81orHigher()) {
+        MessageBoxA(memory::window, "DashReplay requires Windows 8.1 or higher. Sorry :(", "Something went wrong ~(>_<~)", MB_OK | MB_ICONERROR);
+        FreeLibraryAndExitThread(reinterpret_cast<HMODULE>(hModule), 0);
+    }
+    hacks::anticheat_bypass_f(true);
+    CreateDir();
+    ImGuiHook::setRenderFunction(RenderMain);
+    ImGuiHook::setToggleCallback([]() {
         show = !show;
+    });
+    if (MH_Initialize() == MH_OK) {
+        ImGuiHook::setupHooks([](void* target, void* hook, void** trampoline) {
+            MH_CreateHook(target, hook, trampoline);
+        });
+        framerate::mem_init();
+        playLayer::mem_init();
+        speedhack_audio::mem_init();
+        hooks::mem_init();
+        MH_EnableHook(MH_ALL_HOOKS);
+    } else {
+        MessageBoxA(memory::window, "Looks like minhook failed to initialize! DashReplay will not be loaded", "Something went wrong ~(>_<~)", MB_OK | MB_ICONERROR);
+        FreeLibraryAndExitThread(reinterpret_cast<HMODULE>(hModule), 0);
     }
-
-    if (pl && down && key == 'C') {
-        FPSMultiplier::frame_advance = true;
-        FPSMultiplier::nextframe = true;
-    }
-
-    if (pl && down && key == 'F') {
-        FPSMultiplier::frame_advance = false;
-        FPSMultiplier::nextframe = false;
-    }
-
-    if (pl && down && key == 'S') {
-        spambot::enable = !spambot::enable;
-    }
-
-    if (down && key == 'P') {
-        if (playLayer::mode != 2) playLayer::mode = 2;
-        else playLayer::mode = 0;
-    }
-
+    return true;
 }
 
-DWORD WINAPI Main(void* hModule) {
-    srand((uint32_t)time(NULL));
-    if (!std::filesystem::is_directory(".DashReplay") || !std::filesystem::exists(".DashReplay"))
-		std::filesystem::create_directory(".DashReplay");
-        
-    ImGuiHook::Load(RenderMain);
-	MH_Initialize();
-    FPSMultiplier::Setup();
-    playLayer::mem_init();
-	MH_CreateHook(
-		(PVOID)(GetProcAddress(GetModuleHandleA("libcocos2d.dll"), "?dispatchKeyboardMSG@CCKeyboardDispatcher@cocos2d@@QAE_NW4enumKeyCodes@2@_N@Z")),
-		dispatchKeyboardMSGHook,
-		(LPVOID*)&dispatchKeyboardMSG
-    );
-	MH_EnableHook(MH_ALL_HOOKS);
-    return 0;
-}
-
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
 {
-	switch (ul_reason_for_call)
-	{
-	case DLL_PROCESS_ATTACH: {
-        CreateThread(0, 0x1000, Main, hModule, 0, 0);
-        break;
+    if (ul_reason_for_call == DLL_PROCESS_ATTACH) {
+        CreateThread(0, 0x1000, ThreadMain, hModule, 0, 0);
     }
-	case DLL_PROCESS_DETACH:
-		break;
-	}
-	return TRUE;
+    return TRUE;
 }
+

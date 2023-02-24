@@ -1,4 +1,4 @@
-#include "spamBot.h"
+#include "spambot.h"
 
 extern bool spambot::enable = false;
 
@@ -14,7 +14,7 @@ extern int spambot::release = 5;
 extern bool spambot::downed = false;
 
 namespace spambot {
-    bool spambot::NextFrame() {
+    bool spambot::next_frame() {
         if (!downed) {
             if (temppush >= push-1) {
                 temppush = 0;

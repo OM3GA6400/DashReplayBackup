@@ -1,22 +1,26 @@
 #define _CRT_SECURE_NO_WARNINGS
-#include "console.h"
+#include "console.hpp"
 
 namespace Console {
-	void Write(string text){
-		AllocConsole();
+	void Console::Write(string text){
 		freopen("CONOUT$", "w", stdout);
 		printf(text.c_str());
 	}
 
-	string Input(){
+	void Console::WriteLine(string text){
+		text += "\n";
+		freopen("CONOUT$", "w", stdout);
+		printf(text.c_str());
+	}
+
+	string Console::Input(){
 		string text;
-		AllocConsole();
 		freopen("CONIN$", "r", stdin);
 		getline(cin, text);
 		return text;
 	}
 
-	void Clear() {
+	void Console::Clear() {
 		COORD topLeft  = { 0, 0 };
 		HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
 		CONSOLE_SCREEN_BUFFER_INFO screen;
@@ -31,5 +35,9 @@ namespace Console {
 			screen.dwSize.X * screen.dwSize.Y, topLeft, &written
 		);
 		SetConsoleCursorPosition(console, topLeft);
+	}
+
+	void Console::Unlock() {
+		AllocConsole();
 	}
 }

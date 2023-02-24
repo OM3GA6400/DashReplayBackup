@@ -24,7 +24,7 @@ namespace FMOD {
 	class Channel;
 	class DSP;
 }
-enum FMOD_RESULT {};
+enum FMOD_RESULT_ {};
 
 
 #include "GDProtocols.h"

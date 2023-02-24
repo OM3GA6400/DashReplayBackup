@@ -23,7 +23,7 @@ namespace gd {
 		FMOD::Channel* m_pCurrentSoundChannel;
 		FMOD::Channel* m_pGlobalChannel;
 		FMOD::DSP* m_pDSP;
-		FMOD_RESULT m_eLastResult;
+		FMOD_RESULT_ m_eLastResult;
 		int m_nVersion;
 		void* m_pExtraDriverData;
 		int m_nMusicOffset;

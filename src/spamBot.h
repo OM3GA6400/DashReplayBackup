@@ -1,4 +1,4 @@
-#include <iostream>
+#include "pch.h"
 
 namespace spambot {
     extern bool enable;
@@ -11,5 +11,5 @@ namespace spambot {
 
     extern bool downed;
 
-    bool NextFrame();
+    bool next_frame();
 }
