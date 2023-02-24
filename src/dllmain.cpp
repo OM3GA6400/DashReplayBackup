@@ -383,7 +383,6 @@ void RenderMain() {
         }
         else if (index == 8) {
             ImGui::Text("DashReplay GUI v4.0.0b");
-            ImGui::Text("DashReplay Engine v3.2.0");
             ImGui::Text("DashReplay created by TobyAdd, Powered by Dear ImGui");
             ImGui::Separator();
             ImGui::Text("Rigth/Left Alt - Toggle UI");

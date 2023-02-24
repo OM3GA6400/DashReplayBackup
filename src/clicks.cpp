@@ -26,8 +26,8 @@ namespace clicks
                 {
                     string cmd_line = "clicks.exe ";
                     cmd_line += "-i DashReplay/Replays/temp_replay_for_clicks.json ";
-                    cmd_line += "-o " + (string)output + " ";
-                    cmd_line += "--clickpack " + (string)clickpack + " ";
+                    cmd_line += "-o \"" + (string)output + "\" ";
+                    cmd_line += "--clickpack \"" + (string)clickpack + "\" ";
                     cmd_line += "--end-delay 3 --mp3-export ";
                     if (softclicks)
                         cmd_line += "--softclicks ";
