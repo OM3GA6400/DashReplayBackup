@@ -111,8 +111,10 @@ namespace playLayer {
     int __fastcall playLayer::removeCheckpointHook(gd::PlayLayer* self) {
         auto ret = playLayer::removeCheckpoint(self);
         if (dashreplay::info::mode == state::record) {
-            dashreplay::practice_ex::p1.pop_back();
-            dashreplay::practice_ex::p2.pop_back();
+            if (!dashreplay::practice_ex::p1.empty()) {
+                dashreplay::practice_ex::p1.pop_back();
+                dashreplay::practice_ex::p2.pop_back();
+            }
         }
         return ret;
     }

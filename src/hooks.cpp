@@ -1,5 +1,6 @@
 #include "hooks.h"
 #include "replayEngine.h"
+#include "spambot.h"
 
 namespace hooks {
     void __fastcall dispatchKeyboardMSGHook(void* self, void*, int key, bool down) {
@@ -13,7 +14,10 @@ namespace hooks {
             dashreplay::frameadvance::enabled = false;
             dashreplay::frameadvance::next_frame = false;  
         }
-        else if (pl && down && key == 'P') {
+        else if (pl && down && key == 'S') {
+            spambot::enable = !spambot::enable;
+        }
+        else if (down && key == 'P') {
             if (dashreplay::info::mode != state::play) dashreplay::info::mode = state::play;
             else dashreplay::info::mode = state::disable;
         }

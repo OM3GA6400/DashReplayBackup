@@ -63,7 +63,8 @@ namespace dashreplay {
         void handle_reset(gd::PlayLayer* self) {
             if (info::mode == state::record) {
                 if (self->m_isPracticeMode && !practice_ex::p1.empty()) {
-                    frame::frame_offset = practice_ex::p1.back().frame;
+                    if (!practice_ex::p1.empty()) frame::frame_offset = practice_ex::p1.back().frame;
+                    else frame::frame_offset = 0;                
                     unsigned frame = dashreplay::frame::get_frame();
                     while (replay::p1.back().frame > frame) {
                         replay::p1.pop_back();
