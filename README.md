@@ -7,7 +7,7 @@ Geometry Dash Bot Based on Frame Fixes Accuracy
 https://github.com/TobyAdd/DashReplay/releases
 
 # Note
-To use internal record you need to download ffmpeg archive and copy ffmpeg.exe file to GD Folder.
+To use internal recorder you need to download ffmpeg archive and copy ffmpeg.exe file to GD Folder.
 Download FFmepeg: https://github.com/AnimMouse/ffmpeg-autobuild/releases
 
 To generate clicks and include it in showcase you need to download [clicks.exe](https://github.com/TobyAdd/DashReplay/releases/download/v4.0.1/clicks.exe) and copy file to GD Folder. Here is a [tutorial](https://youtu.be/ce7W4Z9qrIM).
