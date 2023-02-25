@@ -14,7 +14,8 @@ To generate clicks and include it in showcase you need to download [clicks.exe](
 Then paste clicks in "DashReplay/Clicks" directory. [Here is an example of a clickpack](https://github.com/TobyAdd/DashReplay/releases/download/v4.0.1/sample_clickpack.zip)
 
 # How to Inject DLL
-You can use [Adaf DLL Loader](https://github.com/adafcaefc/GDDllLoader) or Inject DLL using Cheat Engine, more info you can google it
+You can use [Adaf DLL Loader](https://github.com/adafcaefc/GDDllLoader) or Inject DLL using Cheat Engine, more info you can google it<br />
+DON'T USE MEGA HACK v7 LOADER IT WILL NOT BE INJECTED
 
 # Features
 - Accuracy Replay
