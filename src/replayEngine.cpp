@@ -21,7 +21,7 @@ namespace dashreplay {
 
         void handle_playing(gd::PlayLayer* self) {
             unsigned frame = dashreplay::frame::get_frame();
-            if (frame < dashreplay::replay::p1.back().frame) {
+            if (!dashreplay::replay::p1.empty() && frame < dashreplay::replay::p1.back().frame) {
                 auto it = std::find_if(dashreplay::replay::p1.begin(), dashreplay::replay::p1.end(), [frame](const replay_data& a) { return a.frame == frame; });
                 int index = it - dashreplay::replay::p1.begin();
                 if (it != dashreplay::replay::p1.end()) {
@@ -63,8 +63,7 @@ namespace dashreplay {
         void handle_reset(gd::PlayLayer* self) {
             if (info::mode == state::record) {
                 if (self->m_isPracticeMode && !practice_ex::p1.empty()) {
-                    if (!practice_ex::p1.empty()) frame::frame_offset = practice_ex::p1.back().frame;
-                    else frame::frame_offset = 0;                
+                    frame::frame_offset = practice_ex::p1.back().frame;              
                     unsigned frame = dashreplay::frame::get_frame();
                     while (replay::p1.back().frame > frame) {
                         replay::p1.pop_back();
@@ -80,7 +79,7 @@ namespace dashreplay {
                     frame::frame_offset = 0;
                 }
             }
-            else if (info::mode == state::record) {
+            else if (info::mode == state::play) {
                 playLayer::releaseButton(self, 0, true);
                 playLayer::releaseButton(self, 0, false);
                 inputs::p1 = false;

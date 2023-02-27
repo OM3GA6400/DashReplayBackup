@@ -10,7 +10,7 @@ namespace framerate{
         auto pl = gd::GameManager::sharedState()->getPlayLayer();
         auto ey = gd::GameManager::sharedState()->getEditorLayer();
         dt *= dashreplay::info::speedhack;
-        if (pl && !pl->m_isPaused || ey) {                 
+        if (ey || pl && !pl->m_isPaused) {                 
             const float newdt = 1.f / dashreplay::info::fps / self->getTimeScale();
 
             unsigned times = static_cast<int>((dt + g_left_over) / newdt);

@@ -44,16 +44,16 @@ void Recorder::start(const std::string& path) {
     m_renderer.m_height = m_height;
     m_renderer.begin();
     auto gm = gd::GameManager::sharedState();
-    auto play_layer = gm->getPlayLayer();
-    auto song_file = play_layer->m_level->getAudioFileName();
-    auto fade_in = play_layer->m_levelSettings->m_fadeIn;
-    auto fade_out = play_layer->m_levelSettings->m_fadeOut;
+    auto self = gm->getPlayLayer();
+    auto song_file = self->m_level->getAudioFileName();
+    auto fade_in = self->m_levelSettings->m_fadeIn;
+    auto fade_out = self->m_levelSettings->m_fadeOut;    
     auto bg_volume = gm->m_fBackgroundMusicVolume;
     auto sfx_volume = gm->m_fEffectsVolume;
-    if (play_layer->m_level->songID == 0)
+    if (self->m_level->songID == 0)
         song_file = CCFileUtils::sharedFileUtils()->fullPathForFilename(song_file.c_str(), false);
-    auto is_testmode = play_layer->m_isTestMode;
-    auto song_offset = m_song_start_offset;
+    auto is_testmode = self->m_isTestMode;
+    auto song_offset = start_song_offset;
     std::thread([&, path, song_file, fade_in, fade_out, bg_volume, sfx_volume, is_testmode, song_offset]() {
         std::stringstream stream;
         stream << '"' << m_ffmpeg_path << '"' << " -y -f rawvideo -pix_fmt rgb24 -s " << m_width << "x" << m_height << " -r " << m_fps
@@ -81,22 +81,22 @@ void Recorder::start(const std::string& path) {
         }
         if (process.close()) {
             Console::WriteLine("ffmpeg errored :(");
+            dashreplay::irecorder::recorder_c = false;
             return;
         }
         Console::WriteLine("video should be done now");
         if (!m_include_audio || !std::filesystem::exists(song_file)) return;
-        wchar_t buffer[MAX_PATH];
-        if (!GetTempFileNameW(widen(std::filesystem::temp_directory_path().string()).c_str(), L"rec", 0, buffer)) {
-            Console::WriteLine("error getting temp file");
-            return;
-        }
-        auto temp_path = narrow(buffer) + "." + std::filesystem::path(path).filename().string();
-        std::filesystem::rename(buffer, temp_path);
-        auto total_time = m_last_frame_t; // 1 frame too short?
-        {
+        else {
+            wchar_t buffer[MAX_PATH];
+            if (!GetTempFileNameW(widen(std::filesystem::temp_directory_path().string()).c_str(), L"rec", 0, buffer)) {
+                Console::WriteLine("error getting temp file");
+                return;
+            }
+            auto temp_path = narrow(buffer) + "." + std::filesystem::path(path).filename().string();
+            std::filesystem::rename(buffer, temp_path);
             std::stringstream stream;
             stream << '"' << m_ffmpeg_path << '"' << " -y -ss " << song_offset << " -i \"" << song_file
-            << "\" -i \"" << path << "\" -t " << total_time << " -c:v copy ";
+            << "\" -i \"" << path << "\" -t " << m_last_frame_t << " -c:v copy ";
             if (!m_extra_audio_args.empty())
                 stream << m_extra_audio_args << " ";
             if (clicks::include_clicks)
@@ -106,7 +106,7 @@ void Recorder::start(const std::string& path) {
             if (fade_in && !is_testmode)
                 stream << ";[0:a]afade=t=in:d=2[0:a]";
             if (fade_out && m_finished_level)
-                stream << ";[0:a]afade=t=out:d=2:st=" << (total_time - m_after_end_duration - 3.5f) << "[0:a]";
+                stream << ";[0:a]afade=t=out:d=2:st=" << (m_last_frame_t - m_after_end_duration - 3.5f) << "[0:a]";
             Console::WriteLine("in " + to_string(fade_in) + " out " + to_string(fade_out));
             stream << "\" \"" << temp_path << "\"";
             Console::WriteLine("executing: " + stream.str());
@@ -115,11 +115,13 @@ void Recorder::start(const std::string& path) {
                 Console::WriteLine("oh god adding the song went wrong cmon");
                 return;
             }
+            std::filesystem::remove(widen(path));
+            std::filesystem::rename(temp_path, widen(path));
+            Console::WriteLine("video + audio should be done now!");
         }
-        std::filesystem::remove(widen(path));
-        std::filesystem::rename(temp_path, widen(path));
-        Console::WriteLine("video + audio should be done now!");
-        if (clicks::include_clicks) {
+
+        if (!clicks::include_clicks && dashreplay::replay::p1.empty()) return;
+        else {
             if (!clicks::do_clicks(false)) {
                 Console::WriteLine("Generating clicks went wrong :(");
                 return;
@@ -201,19 +203,18 @@ void Recorder::capture_frame() {
     m_renderer.capture(m_lock, m_current_frame, m_frame_has_data);
 }
 
-void Recorder::handle_recording(gd::PlayLayer* play_layer, float dt) {
-    if (!play_layer->m_hasLevelCompleteMenu || m_after_end_extra_time < m_after_end_duration) {
-        if (play_layer->m_hasLevelCompleteMenu) {
+void Recorder::handle_recording(gd::PlayLayer* self, float dt) {
+    if (!self->m_hasLevelCompleteMenu || m_after_end_extra_time < m_after_end_duration) {
+        if (self->m_hasLevelCompleteMenu) {
             m_after_end_extra_time += dt;
             m_finished_level = true;
         }
         auto frame_dt = 1. / static_cast<double>(m_fps);
-        auto time = play_layer->m_time + m_extra_t - m_last_frame_t;
+        auto time = self->m_time + m_extra_t - m_last_frame_t;
         if (time >= frame_dt) {
-            gd::FMODAudioEngine::sharedEngine()->setBackgroundMusicTime(
-                (float)play_layer->m_time + m_song_start_offset);
+            gd::FMODAudioEngine::sharedEngine()->setBackgroundMusicTime(start_song_offset + (float)self->m_time);
             m_extra_t = time - frame_dt;
-            m_last_frame_t = play_layer->m_time;
+            m_last_frame_t = self->m_time;
             capture_frame();
         }
     } else {
@@ -221,8 +222,7 @@ void Recorder::handle_recording(gd::PlayLayer* play_layer, float dt) {
     }
 }
 
-void Recorder::update_song_offset(gd::PlayLayer* play_layer) {
-    // from what i've checked rob doesnt store the timeforxpos result anywhere, so i have to calculate it again
-    m_song_start_offset = play_layer->m_levelSettings->m_songStartOffset + play_layer->timeForXPos2(
-        play_layer->m_player1->m_position.x, play_layer->m_isTestMode);
+void Recorder::update_song_offset(gd::PlayLayer* self) {
+    start_song_offset = (float)self->m_time + (self->m_levelSettings->m_songStartOffset + self->timeForXPos2(
+        self->m_player1->m_position.x, self->m_isTestMode));
 }

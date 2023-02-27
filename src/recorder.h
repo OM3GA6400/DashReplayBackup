@@ -36,10 +36,10 @@ public:
     std::string m_codec = "libx264", m_bitrate = "15M", m_extra_args = "", m_extra_audio_args = "";
     float m_after_end_duration = 3.f;
     float m_after_end_extra_time;
-    float m_song_start_offset;
     bool m_finished_level;
     bool m_include_audio = true;
     std::string m_ffmpeg_path = "ffmpeg";
+    float start_song_offset;
 
     void start(const std::string& path);
     void stop();

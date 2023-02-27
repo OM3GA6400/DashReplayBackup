@@ -4,10 +4,11 @@
 using namespace std::filesystem;
 
 namespace clicks {
-    extern char clickpack[128];
+    extern vector<string> clickpacks;
     extern char output[128];
     extern bool softclicks;
     extern int softdelay;
+    extern int selected_clickpack_idx;
 
     extern bool hardclicks;
     extern int harddelay;
@@ -15,6 +16,7 @@ namespace clicks {
     extern bool include_clicks;
     bool do_clicks(bool msg);
     void render();
+    void update_list();
 }
 
 const string structure = "[clickpack name]\n\

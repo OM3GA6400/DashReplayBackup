@@ -13,6 +13,7 @@ namespace playLayer {
         dashreplay::frame::frame_offset = 0;
         dashreplay::practice_ex::p1.clear();
         dashreplay::practice_ex::p2.clear();
+        dashreplay::irecorder::recorder.update_song_offset(self);
         return ret;
     }
     
@@ -20,7 +21,7 @@ namespace playLayer {
         if (dashreplay::irecorder::recorder.m_recording)
             dashreplay::irecorder::recorder.handle_recording(self, deltaTime);
 		playLayer::update(self, deltaTime);
-        if (dashreplay::frame::get_frame() != 0) {
+        if (dashreplay::frame::get_frame() != 0 && !self->m_isDead) {
             if (dashreplay::info::mode == state::record) {
                 dashreplay::replay::p1.push_back(dashreplay::replay::handle_recording(self, true));
                 dashreplay::replay::p2.push_back(dashreplay::replay::handle_recording(self, false));
@@ -48,6 +49,7 @@ namespace playLayer {
         dashreplay::sequence::do_some_magic();
         playLayer::resetLevel(self);
         dashreplay::replay::handle_reset(self);
+        dashreplay::irecorder::recorder.update_song_offset(self);
     }
 
     void __fastcall playLayer::onQuitHook(gd::PlayLayer* self) {

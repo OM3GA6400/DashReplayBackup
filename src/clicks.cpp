@@ -5,11 +5,12 @@ bool select = true;
 
 namespace clicks
 {
-    char clickpack[128] = "";
-    extern char output[128] = "DashReplay/Clicks/Output.mp3";
+    vector<string> clickpacks;
+    char output[128] = "DashReplay\\Clicks\\Output.mp3";
     bool include_clicks = false;
     bool softclicks = false;
     int softdelay = 200;
+    int selected_clickpack_idx = 0;
 
     bool hardclicks = false;
     int harddelay = 500;
@@ -25,9 +26,9 @@ namespace clicks
                 if (dashreplay::replay::save())
                 {
                     string cmd_line = "clicks.exe ";
-                    cmd_line += "-i DashReplay/Replays/temp_replay_for_clicks.json ";
+                    cmd_line += "-i DashReplay\\Replays\\temp_replay_for_clicks.json ";
                     cmd_line += "-o \"" + (string)output + "\" ";
-                    cmd_line += "--clickpack \"" + (string)clickpack + "\" ";
+                    cmd_line += "--clickpack \"" + clickpacks[selected_clickpack_idx] + "\" ";
                     cmd_line += "--end-delay 3 --mp3-export ";
                     if (softclicks)
                         cmd_line += "--softclicks ";
@@ -59,7 +60,7 @@ namespace clicks
                         gd::FLAlertLayer::create(nullptr, "Info", "Ok", nullptr, "Replay doesn't have actions")->show();
                     return false;
                 }
-                filesystem::remove("DashReplay/Replays/temp_replay_for_clicks.json");
+                filesystem::remove("DashReplay\\Replays\\temp_replay_for_clicks.json");
                 strcpy_s(dashreplay::info::replay_name, old_replay.c_str());
                 return true;                
             }
@@ -81,50 +82,58 @@ namespace clicks
 
     void render()
     {
-        ImGui::Text("Clickpack Folder:");
-        if (!select) {
-            ImGui::InputText("##clickpack_name", clickpack, IM_ARRAYSIZE(clickpack));
-            ImGui::SameLine();
-            if (ImGui::ArrowButton("##comboopen", ImGuiDir_Down)) select = true;
+        if (clickpacks.empty()) {
+            ImGui::Text("Where clickpacks!?");
         }
         else {
-            for (const auto & entry: filesystem::directory_iterator("DashReplay/Clicks")) {
-                string click = entry.path().filename().string();
-                if (filesystem::is_directory("DashReplay/Clicks/" + click)) {
-                    if (ImGui::MenuItem(click.c_str())) {
-                        strcpy_s(clickpack, string("DashReplay/Clicks/" + click).c_str());
-                        select = false;
-                    }
+            ImGui::Text("Clickpack Folder:");
+            ImGui::BeginChild("##clickpackchild", ImVec2(NULL, 120), true);
+            size_t n = 0;
+            for (size_t i = 0; i < clickpacks.size(); i++) {
+                bool is_selected = (selected_clickpack_idx == n);
+                if (ImGui::Selectable(clickpacks[selected_clickpack_idx].c_str(), is_selected)) selected_clickpack_idx = n;
+            }
+            ImGui::EndChild();
+            ImGui::Checkbox("Softclicks", &softclicks);
+            ImGui::SameLine();
+            ImGui::PushItemWidth(160.f);
+            ImGui::InputInt("Delay##1", &softdelay);
+            ImGui::Checkbox("Hardclicks", &hardclicks);
+            ImGui::SameLine();
+            ImGui::PushItemWidth(160.f);
+            ImGui::InputInt("Delay##2", &harddelay);
+            ImGui::Text("Output file:");
+            ImGui::PushItemWidth(300.f);
+            ImGui::InputText("##output_name", output, IM_ARRAYSIZE(output));
+            if (ImGui::Button("Render"))
+            {
+                if (clickpacks.empty()) {
+                    gd::FLAlertLayer::create(nullptr, "Info", "Ok", nullptr, "Clickpack not selected")->show();
                 }
+                else {
+                    do_clicks(true);
+                }            
             }
+
+            ImGui::Separator();
+            ImGui::Checkbox("Include clicks on recording", &include_clicks);
+            ImGui::Separator();
+            ImGui::Text("[?] clickpack folder structure");
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip(structure.c_str());
         }
-        
-        ImGui::Checkbox("Softclicks", &softclicks);
-        ImGui::SameLine();
-        ImGui::PushItemWidth(160.f);
-        ImGui::InputInt("Delay##1", &softdelay);
-        ImGui::Checkbox("Hardclicks", &hardclicks);
-        ImGui::SameLine();
-        ImGui::PushItemWidth(160.f);
-        ImGui::InputInt("Delay##2", &harddelay);
-        ImGui::Text("Output file:");
-        ImGui::PushItemWidth(300.f);
-        ImGui::InputText("##output_name", output, IM_ARRAYSIZE(output));
-        if (ImGui::Button("Render"))
-        {
-            if (((clickpack != NULL) && (clickpack[0] == '\0'))) {
-                gd::FLAlertLayer::create(nullptr, "Info", "Ok", nullptr, "Clickpack not selected")->show();
-            }
-            else {
-                do_clicks(true);
+        if (ImGui::Button("Update Clickpack List")) {
+            update_list();
+        }
+    }
+
+    void update_list() {
+        clickpacks.clear();
+        for (const auto & entry: filesystem::directory_iterator("DashReplay\\Clicks")) {
+            string click = entry.path().string();
+            if (filesystem::is_directory(click)) {
+                clickpacks.push_back(click);
             }            
         }
-
-        ImGui::Separator();
-        ImGui::Checkbox("Include clicks on recording", &include_clicks);
-        ImGui::Separator();
-        ImGui::Text("[?] clickpack folder structure");
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip(structure.c_str());
     }
 }

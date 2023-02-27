@@ -14,11 +14,10 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #include "editor.h"
 #include "clicks.h"
 #include "hacks.h"
+#include "config.h"
 
 bool show = true;
 bool inited = false;
-bool windowRecordOverwrite = true;
-static float fadeTimer = 4.0f;
 
 char* items[] = {"General", "Assist", "Editor", "Recorder", "Sequence", "Converter", "Clickbot", "Hacks", "About"};
 char* converterTypes[] = {"Plain Text (.txt)"};
@@ -37,7 +36,7 @@ void SelectReplay() {
         opennedSP = !opennedSP; 
         if (opennedSP) {
             replay_list.clear();
-            for (const auto & entry : filesystem::directory_iterator("DashReplay/Replays")) {
+            for (const auto & entry : filesystem::directory_iterator("DashReplay\\Replays")) {
                 string replay = entry.path().filename().string();
                 if (replay.find(".json") != std::string::npos) {
                     replay_list.push_back(entry.path().filename().string().erase(replay.size()-5, replay.size()));
@@ -204,15 +203,16 @@ void RenderMain() {
                     }
                     else {
                         if (clicks::include_clicks) {
-                            if (((clicks::clickpack != NULL) && (clicks::clickpack[0] == '\0'))) {
+                            if (clicks::clickpacks.empty()) {
                                 gd::FLAlertLayer::create(nullptr, "Info", "Ok", nullptr, "Important! Clickpack not selected, the clicks will not be included in video. Go to \"Clickbot\" tab and select clickpack.")->show();
                             }
                         }
-                        if (std::filesystem::exists("ffmpeg.exe")) {
+                        if (std::filesystem::exists("ffmpeg.exe")) {                            
                             dashreplay::irecorder::recorder_c = !dashreplay::irecorder::recorder_c;
                             if (dashreplay::irecorder::recorder_c) {
-                                dashreplay::info::mode = state::play;
-                                dashreplay::irecorder::recorder.start("DashReplay/Videos/" + (string)dashreplay::irecorder::video_name);
+                                if (!dashreplay::replay::p1.empty())
+                                    dashreplay::info::mode = state::play;
+                                dashreplay::irecorder::recorder.start("DashReplay\\Videos\\" + (string)dashreplay::irecorder::video_name);
                             }
                             else {
                                 if (dashreplay::irecorder::recorder.m_recording)
@@ -268,6 +268,10 @@ void RenderMain() {
             if (ImGui::InputText("Codec##ir_codec", codec, IM_ARRAYSIZE(codec))) {
                 dashreplay::irecorder::recorder.m_codec = (string)codec;
             }
+
+            ImGui::SameLine();
+
+            ImGui::InputFloat("After end duration", &dashreplay::irecorder::recorder.m_after_end_duration);
 
             ImGui::Separator();
 
@@ -372,7 +376,7 @@ void RenderMain() {
                 ShellExecuteA(0, "open", "https://matcool.github.io/gd-macro-converter/", 0, 0, SW_SHOWNORMAL);
             }
             if (dashreplay::converter::converterType == 0) {
-                ImGui::Text("Replay will be saved to \"DashReplay/converted.txt\"");
+                ImGui::Text("Replay will be saved to \"DashReplay\\converted.txt\"");
             }
         }
         else if (index == 6) {
@@ -385,11 +389,11 @@ void RenderMain() {
             ImGui::Text("DashReplay GUI v4.0.1b");
             ImGui::Text("DashReplay created by TobyAdd, Powered by Dear ImGui");
             ImGui::Separator();
-            ImGui::Text("Rigth/Left Alt - Toggle UI");
-            ImGui::Text("C - Enable Frame Advance + Next Frame");
-            ImGui::Text("F - Disable Frame Advance");
-            ImGui::Text("P - Toggle Playback");
-            ImGui::Text("S - Spam Bot Toggle");
+            ImGui::Text("%c - Toggle UI", config::keybind_menu);
+            ImGui::Text("%c - Toggle Frame Advance", config::keybind_frameadvance);
+            ImGui::Text("%c - Next Frame (Frame Advance)", config::keybind_nextframe);
+            ImGui::Text("%c - Toggle Playback", config::keybind_playback);
+            ImGui::Text("%c - Spam Bot Toggle", config::keybind_spambot);
             ImGui::Separator();
             ImGui::Text("Special Thanks:");
             ImGui::Text("HJfod, Adaf - Help in early days"); //Absolute  Eimaen Ubuntu Matcool qb
@@ -409,12 +413,9 @@ void RenderMain() {
     }
 }
 
-void CreateDir() {
-    if (!std::filesystem::is_directory("DashReplay") || !std::filesystem::exists("DashReplay")) {
-        std::filesystem::create_directory("DashReplay");
-        std::filesystem::create_directory("DashReplay/Replays");
-        std::filesystem::create_directory("DashReplay/Videos");
-        std::filesystem::create_directory("DashReplay/Clicks");
+void CheckDir(string dir) {
+    if (!std::filesystem::is_directory(dir) || !std::filesystem::exists(dir)) {
+        std::filesystem::create_directory(dir);
     }
 }
 
@@ -426,8 +427,14 @@ DWORD WINAPI ThreadMain(void* hModule) {
         MessageBoxA(memory::window, "DashReplay requires Windows 8.1 or higher. Sorry :(", "Something went wrong ~(>_<~)", MB_OK | MB_ICONERROR);
         FreeLibraryAndExitThread(reinterpret_cast<HMODULE>(hModule), 0);
     }
+    clicks::update_list();
     hacks::anticheat_bypass_f(true);
-    CreateDir();
+    CheckDir("DashReplay");
+    CheckDir("DashReplay\\Replays");
+    CheckDir("DashReplay\\Videos");
+    CheckDir("DashReplay\\Clicks");
+    if (filesystem::exists("DashReplay\\Config.json")) config::load();        
+    else config::save();
     ImGuiHook::setRenderFunction(RenderMain);
     ImGuiHook::setToggleCallback([]() {
         show = !show;
@@ -452,6 +459,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 {
     if (ul_reason_for_call == DLL_PROCESS_ATTACH) {
         CreateThread(0, 0x1000, ThreadMain, hModule, 0, 0);
+    }
+    else if (ul_reason_for_call == DLL_PROCESS_DETACH) {
+        config::save();
     }
     return TRUE;
 }
