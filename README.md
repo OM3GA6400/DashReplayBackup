@@ -6,8 +6,16 @@ Geometry Dash Bot Based on Frame Fixes Accuracy
 # Download
 https://github.com/TobyAdd/DashReplay/releases
 
+# Note
+To use internal recorder you need to download ffmpeg archive and copy ffmpeg.exe file to GD Folder.
+Download FFmepeg: https://github.com/AnimMouse/ffmpeg-autobuild/releases
+
+To generate clicks and include it in showcase you need to download [clicks.exe](https://github.com/TobyAdd/DashReplay/releases/download/v4.0.1/clicks.exe) and copy file to GD Folder. Here is a [tutorial](https://youtu.be/ce7W4Z9qrIM).
+Then paste clicks in "DashReplay/Clicks" directory. [Here is an example of a clickpack](https://github.com/TobyAdd/DashReplay/releases/download/v4.0.1/sample_clickpack.zip)
+
 # How to Inject DLL
-You can use [Adaf DLL Loader](https://github.com/adafcaefc/GDDllLoader) or Inject DLL using Cheat Engine, more info you can google it
+You can use [Adaf DLL Loader](https://github.com/adafcaefc/GDDllLoader) or Inject DLL using Cheat Engine, more info you can google it<br />
+DON'T USE MEGA HACK v7 LOADER IT WILL NOT BE INJECTED
 
 # Features
 - Accuracy Replay
