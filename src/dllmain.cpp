@@ -386,7 +386,7 @@ void RenderMain() {
             hacks::render();
         }
         else if (index == 8) {
-            ImGui::Text("DashReplay GUI v4.0.1b");
+            ImGui::Text("DashReplay v4.1.0");
             ImGui::Text("DashReplay created by TobyAdd, Powered by Dear ImGui");
             ImGui::Separator();
             ImGui::Text("%c - Toggle UI", config::keybind_menu);
