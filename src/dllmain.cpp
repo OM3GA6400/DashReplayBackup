@@ -421,6 +421,10 @@ void CheckDir(string dir) {
 
 DWORD WINAPI ThreadMain(void* hModule) {
     srand((unsigned)time(NULL));
+    CheckDir("DashReplay");
+    CheckDir("DashReplay\\Replays");
+    CheckDir("DashReplay\\Videos");
+    CheckDir("DashReplay\\Clicks");
     Console::Unlock();
     memory::get_hwnd();
     if (!IsWindows81orHigher()) {
@@ -429,10 +433,6 @@ DWORD WINAPI ThreadMain(void* hModule) {
     }
     clicks::update_list();
     hacks::anticheat_bypass_f(true);
-    CheckDir("DashReplay");
-    CheckDir("DashReplay\\Replays");
-    CheckDir("DashReplay\\Videos");
-    CheckDir("DashReplay\\Clicks");
     if (filesystem::exists("DashReplay\\Config.json")) config::load();        
     else config::save();
     ImGuiHook::setRenderFunction(RenderMain);
