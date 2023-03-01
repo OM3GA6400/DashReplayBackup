@@ -12,7 +12,6 @@ namespace framerate{
         dt *= dashreplay::info::speedhack;
         if (ey || pl && !pl->m_isPaused) {                 
             const float newdt = 1.f / dashreplay::info::fps / self->getTimeScale();
-
             unsigned times = static_cast<int>((dt + g_left_over) / newdt);
             if (dt == 0.f) {
                 if (!dashreplay::frameadvance::enabled)
@@ -20,9 +19,17 @@ namespace framerate{
             }
                 
             auto start = std::chrono::high_resolution_clock::now();
+
+            if (dashreplay::frameadvance::enabled) {
+                if (!dashreplay::frameadvance::next_frame)
+                    return;
+
+                CCScheduler_update(self, newdt);
+                dashreplay::frameadvance::next_frame = false;
+                return;
+            }
+
             for (unsigned i = 0; i < times; ++i) {
-                if (dashreplay::frameadvance::enabled && !dashreplay::frameadvance::next_frame) {return;}
-                else {dashreplay::frameadvance::next_frame = false;}
                 CCScheduler_update(self, newdt);
                 using namespace std::literals;
                 if (std::chrono::high_resolution_clock::now() - start > 33.333ms) {

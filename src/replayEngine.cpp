@@ -198,7 +198,7 @@ namespace dashreplay {
     namespace info {
         int mode = state::disable;
         char replay_name[128] = "";
-        float fps = 60.f;
+        float fps = 240.f;
         float speedhack = 1.f;
     }
 

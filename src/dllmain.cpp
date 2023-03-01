@@ -386,7 +386,7 @@ void RenderMain() {
             hacks::render();
         }
         else if (index == 8) {
-            ImGui::Text("DashReplay v4.1.0");
+            ImGui::Text("DashReplay v4.1.1");
             ImGui::Text("DashReplay created by TobyAdd, Powered by Dear ImGui");
             ImGui::Separator();
             ImGui::Text("%c - Toggle UI", config::keybind_menu);
@@ -396,13 +396,12 @@ void RenderMain() {
             ImGui::Text("%c - Spam Bot Toggle", config::keybind_spambot);
             ImGui::Separator();
             ImGui::Text("Special Thanks:");
-            ImGui::Text("HJfod, Adaf - Help in early days"); //Absolute  Eimaen Ubuntu Matcool qb
+            ImGui::Text("HJfod, Adaf - Help in early days");
             ImGui::Text("Absolute - Hacks");
-            ImGui::Text("Eimaen, howhathe - Some coding stuff");
             ImGui::Text("Ubuntu - Font");
             ImGui::Text("Matcool - Internal Recorder");
             ImGui::Text("Acid - Clickbot");
-            ImGui::Text("And DashReplay Community");
+            ImGui::Text("Eimaen, ElPaan, howhathe and DashReplay Community");
             ImGui::Separator();
             if (ImGui::MenuItem("Discord Server")) ShellExecuteA(0, "open", "https://discord.com/invite/mQHXzG72vU", 0, 0, SW_SHOWNORMAL);
             if (ImGui::MenuItem("Github")) ShellExecuteA(0, "open", "https://github.com/TobyAdd/DashReplay", 0, 0, SW_SHOWNORMAL);
